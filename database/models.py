@@ -1,31 +1,27 @@
 from django.db import models
 from django.conf import settings
-from django.core.validators import MinLengthValidator
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
 
 class AdminManager(BaseUserManager):
-    def create_user(self, email, nome_user, nome, password=None):
+    def create_user(self, email, nome, password=None):
         if not email:
             raise ValueError('O email é obrigatório')
         email = self.normalize_email(email)
-        user = self.model(email=email, nome_user=nome_user, nome=nome)
+        user = self.model(email=email, nome=nome)
         
-        # O set_password absorve a necessidade das suas colunas SALT e HASH
         user.set_password(password) 
         user.save(using=self._db)
         return user
 
-    def create_superuser(self, email, nome_user, nome, password=None):
-        user = self.create_user(email, nome_user, nome, password)
+    def create_superuser(self, email, nome, password=None):
+        user = self.create_user(email, nome, password)
         user.is_superuser = True
         user.is_staff = True  # Permite acesso ao painel de controle nativo
         user.save(using=self._db)
         return user
 
 class Admin(AbstractBaseUser, PermissionsMixin):
-    # Campos baseados no seu diagrama ER
     nome = models.CharField(max_length=255)
-    nome_user = models.CharField(max_length=150, unique=True)
     email = models.EmailField(unique=True)
     
     # O Django gerencia os timestamps automaticamente com estas flags
@@ -38,22 +34,22 @@ class Admin(AbstractBaseUser, PermissionsMixin):
 
     objects = AdminManager()
 
-    # Define o que será usado para fazer login (pode trocar para 'nome_user' se preferir)
+    # Define o que será usado para fazer login
     USERNAME_FIELD = 'email'
-    REQUIRED_FIELDS = ['nome_user', 'nome']
+    REQUIRED_FIELDS = ['nome']
 
     class Meta:
-        db_table = 'admin' # Força o nome da tabela no PostgreSQL para bater com o seu diagrama
+        db_table = 'admin'
 
     def __str__(self):
-        return self.nome_user
+        return self.nome
 
-class Log_admin(models.Model):
+class LogAdmin(models.Model):
     id_admin = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, db_column='ID_ADMIN')
 
-    ip_aparelho = models.CharField(max_length=15, validators=[MinLengthValidator(15)])
+    ip_aparelho = models.GenericIPAddressField()
     
-    event_data = models.DateTimeField(auto_now_add=True)
+    event_date = models.DateTimeField(auto_now_add=True)
     event_type = models.CharField(max_length=20)
 
 class Item(models.Model):
@@ -74,19 +70,22 @@ class Uso(models.Model):
     
     is_active = models.BooleanField(default=True)
 
-    limit_data = models.DateTimeField()
+    limit_date = models.DateTimeField()
 
-class Log_uso(models.Model):
+    quant = models.PositiveIntegerField(default=1)
+
+class LogUso(models.Model):
     id_uso = models.ForeignKey(Uso, on_delete=models.CASCADE)
 
-    ip_aparelho = models.CharField(max_length=15, validators=[MinLengthValidator(15)])
+    ip_aparelho = models.GenericIPAddressField()
     
-    event_data = models.DateTimeField(auto_now_add=True)
+    event_date = models.DateTimeField(auto_now_add=True)
     event_type = models.CharField(max_length=20)
 
 class Morador(models.Model):
     nome = models.CharField(max_length=255)
     ap = models.CharField(max_length=4)
+    email = models.EmailField(unique=True)
 
 class Emprestimo(models.Model):
     id_item = models.ForeignKey(Item, on_delete=models.CASCADE)
@@ -94,12 +93,14 @@ class Emprestimo(models.Model):
     
     is_active = models.BooleanField(default=True)
 
-    limit_data = models.DateTimeField()
+    limit_date = models.DateTimeField()
 
-class Log_Emprestimo(models.Model):
-    id_empresitmo = models.ForeignKey(Emprestimo, on_delete=models.CASCADE)
+    quant = models.PositiveIntegerField(default=1)
 
-    ip_aparelho = models.CharField(max_length=15, validators=[MinLengthValidator(15)])
+class LogEmprestimo(models.Model):
+    id_emprestimo = models.ForeignKey(Emprestimo, on_delete=models.CASCADE)
+
+    ip_aparelho = models.GenericIPAddressField()
     
-    event_data = models.DateTimeField(auto_now_add=True)
+    event_date = models.DateTimeField(auto_now_add=True)
     event_type = models.CharField(max_length=20)
