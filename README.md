@@ -19,7 +19,7 @@ Execute o comando `uv run python -c 'from django.core.management.utils import ge
 ## PostgreSQL
 
 Crie um novo usuário e um banco de dados controlado pelo novo usuário. No 
-diretório raiz do projeto, crie os arquivos `.pg_service.conf` e`.my_pgpass` e 
+diretório raiz do projeto, crie os arquivos `.pg_service.conf` e`.my_pgpass` 
 nos respectivos formatos:
 
 `.pg_service.conf`:
@@ -34,9 +34,9 @@ nos respectivos formatos:
     dbname=DBNAME
     port=5432
 
-Os placeholders `DBNAME`, `USER` e `YOUR_PASSWORD ` referem-se 
-ao nome do banco de dados criado, ao nome do usuário e à sua senha, respectivamente.
+Os placeholders `DBNAME`, `USER` e `YOUR_PASSWORD` referem-se 
+ao nome do banco de dados criado, ao nome do usuário criado e à sua senha, respectivamente.
 
 # Acessar servidor
 
-Para acessar o servidor no localhost, realize as migrações com `uv run manage.py makemigrations` e `uv run manage.py migrate` e então execute `uv run manage.p runserver` para rodar o servidor de desenvolvimento na porta 8000.
+Para acessar o servidor no localhost, realize as migrações com `uv run manage.py makemigrations` e `uv run manage.py migrate` e então execute `uv run manage.py runserver` para rodar o servidor de desenvolvimento na porta 8000.
