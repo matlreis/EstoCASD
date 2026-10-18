@@ -32,7 +32,7 @@ class Admin(AbstractBaseUser, PermissionsMixin):
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
 
-    objects = AdminManager()
+    objects:AdminManager = AdminManager()
 
     # Define o que será usado para fazer login
     USERNAME_FIELD = 'email'
