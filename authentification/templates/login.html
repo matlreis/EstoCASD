@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>Login - Controle de Estoque</title>
+    <style>
+        .formulario { margin-bottom: 30px; padding: 15px; background: #f0f0f0; max-width: 400px; }
+        .botoes-navegacao { margin-top: 20px; border-top: 1px solid #ccc; padding-top: 10px; }
+    </style>
+</head>
+<body>
+
+    <h1>Acesso ao Sistema</h1>
+
+    <div class="formulario">
+        <h2>Fazer Login</h2>
+        
+        <!-- Formulário do Django -->
+        <form method="POST">
+            {% csrf_token %} <!-- Obrigatório para segurança -->
+            
+            {{ form.as_p }} <!-- Renderiza email e senha -->
+            
+            <button type="submit">Entrar</button>
+        </form>
+
+        <!-- Navegação para o Cadastro -->
+        <div class="botoes-navegacao">
+            <p>Ainda não tem uma conta?</p>
+            <a href="{% url 'cadastro' %}">
+                <button type="button">Ir para o Cadastro</button>
+            </a>
+        </div>
+    </div>
+
+</body>
+</html>

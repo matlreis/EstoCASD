@@ -35,6 +35,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'database',
+    'authentification',
 ]
 
 AUTH_USER_MODEL = 'database.Admin'

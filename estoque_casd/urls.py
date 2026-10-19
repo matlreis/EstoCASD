@@ -17,8 +17,11 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import path
 from database.views import gerenciar_estoque
+from authentification.views import fazer_login, fazer_sign_up
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    path('estoque/', gerenciar_estoque, name='estoque'),
+    path('', gerenciar_estoque, name=''),
+    path('login', fazer_login, name='login'),
+    path('cadastro', fazer_sign_up, name='cadastro')
 ]

@@ -1,25 +1,45 @@
 from django.shortcuts import render, redirect
-from .models import Item
-from .forms import ItemForm
+from .models import Item, Admin, LogAdmin
+from .forms import CreateItem, UpdateItem
 
 def gerenciar_estoque(request):
-    # Se o usuário enviou o formulário (clicou em salvar)
     if request.method == 'POST':
-        form = ItemForm(request.POST)
-        if form.is_valid():
-            form.save() # Salva direto no banco de dados (CREATE)
-            return redirect('estoque') # Recarrega a página para limpar o formulário
+        acao = request.POST.get('acao')
+
+        if acao == 'criar':  
+            create_form = CreateItem(request.POST)
+            if create_form.is_valid():
+                create_form.save()
+
+        else:
+            id = request.POST.get('item_id')
+            if acao == 'atualizar':
+                item = Item.objects.get(id=id)
+                item.nome = request.POST.get('nome')
+                item.tipo_estoque = request.POST.get('tipo_estoque')
+                item.quant_total = request.POST.get('quant_total')
+                item.save()
+
+                
+                #update_form = UpdateItem(request.POST)
+                #update_form.save()
+
+            if acao == 'deletar':
+                Item.objects.filter(id=id).delete()
+
+        return redirect('')
     
-    # Se o usuário apenas acessou a página (GET)
     else:
-        form = ItemForm() # Cria um formulário vazio
+        create_form = CreateItem()
 
-    # Busca todos os produtos para a tabela (READ)
     itens = Item.objects.all()
+    usuarios = Admin.objects.all()
+    log_admin = LogAdmin.objects.all()
 
-    # Envia o formulário e a lista de produtos para o HTML
     contexto = {
-        'form': form,
-        'itens': itens
+        'create_form': create_form,
+        'itens': itens,
+        'usuarios': usuarios,
+        'log_admin': log_admin
     }
     return render(request, 'estoque.html', contexto)
