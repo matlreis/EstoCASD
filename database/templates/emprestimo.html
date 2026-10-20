@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>Controle de Estoque</title>
+</head>
+<body>
+    <div class="formulario">
+        <h2>Adicionar Novo Morador</h2>
+        <form method="POST">
+            {% csrf_token %} 
+            {{ morador_form.as_p }} 
+            <button type="submit" name="acao" value="criar">Salvar morador</button>
+        </form>
+    </div>
+</body>
+</html>

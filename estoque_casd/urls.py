@@ -16,12 +16,13 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path
-from database.views import gerenciar_estoque
+from database.views import gerenciar_estoque, pegar_emprestimo
 from authentification.views import fazer_login, fazer_sign_up
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('', gerenciar_estoque, name=''),
-    path('login', fazer_login, name='login'),
-    path('cadastro', fazer_sign_up, name='cadastro')
+    path('login/', fazer_login, name='login'),
+    path('cadastro/', fazer_sign_up, name='cadastro'),
+    path('emprestimo/', pegar_emprestimo, name='emprestimo')
 ]

@@ -1,6 +1,6 @@
 from django.shortcuts import render, redirect
 from .models import Item, Admin, LogAdmin
-from .forms import CreateItem, UpdateItem
+from .forms import CreateItem, UpdateItem, CreateMorador
 
 def gerenciar_estoque(request):
     if request.method == 'POST':
@@ -24,8 +24,11 @@ def gerenciar_estoque(request):
                 #update_form = UpdateItem(request.POST)
                 #update_form.save()
 
-            if acao == 'deletar':
+            elif acao == 'deletar':
                 Item.objects.filter(id=id).delete()
+            
+            elif acao == 'emprestar':
+                return redirect('emprestimo')
 
         return redirect('')
     
@@ -43,3 +46,19 @@ def gerenciar_estoque(request):
         'log_admin': log_admin
     }
     return render(request, 'estoque.html', contexto)
+
+def pegar_emprestimo(request):
+    if request.method == 'POST':
+        morador_form = CreateMorador(request.POST)
+        if morador_form.is_valid():
+            morador_form.save()
+
+        redirect('emprestimo')
+
+    else:
+        morador_form = CreateMorador()
+
+    contexto = {
+        'morador_form': morador_form
+    }
+    return render(request, 'emprestimo.html', contexto)
