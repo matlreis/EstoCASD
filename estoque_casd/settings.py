@@ -35,7 +35,10 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'estoque',
+    'autenticacao'
 ]
+
+LOGIN_URL = 'autenticacao:login'
 
 AUTH_USER_MODEL = 'estoque.Admin'
 

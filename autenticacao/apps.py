@@ -1,8 +1,8 @@
 from django.apps import AppConfig
 
 
-class AutentificationConfig(AppConfig):
-    name = 'authentification'
+class AutenticacaoConfig(AppConfig):
+    name = 'autenticacao'
 
     def ready(self):
-        import database.signals
+        from . import signals

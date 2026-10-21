@@ -1,7 +1,7 @@
 from django.db.models.signals import post_save
 from django.contrib.auth.signals import user_logged_in, user_logged_out
 from django.dispatch import receiver
-from .models import LogAdmin, LogEmprestimo, Emprestimo
+from estoque.models import LogAdmin, LogEmprestimo, Emprestimo
 
 @receiver(user_logged_in)
 def log_admin_login(sender, request, user, **kwargs):

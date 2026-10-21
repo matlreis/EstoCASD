@@ -1,12 +1,12 @@
 from django import forms
-from database.models import Admin
+from django.contrib.auth import get_user_model
 
 class SignUpForm(forms.ModelForm):
     senha = forms.CharField(widget=forms.PasswordInput, label="Senha")
     confirmar_senha = forms.CharField(widget=forms.PasswordInput, label="Confirmar Senha")
 
     class Meta:
-        model = Admin
+        model = get_user_model()
         fields = ['nome', 'email']
 
     def clean(self):
