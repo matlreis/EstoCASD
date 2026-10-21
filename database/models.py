@@ -76,7 +76,7 @@ class Transacao(models.Model):
         DS = 'DEVOLUCAO_SINALIZADA'
         DE = 'DEVOLVIDO'
 
-    status = models.CharField(max_length=20, choices=StatusTransacao.choices)
+    status = models.CharField(max_length=20, choices=StatusTransacao.choices, default=StatusTransacao.AT)
 
     limit_date = models.DateTimeField()
     quant = models.PositiveIntegerField(default=1)
