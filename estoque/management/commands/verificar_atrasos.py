@@ -1,6 +1,6 @@
 from django.core.management.base import BaseCommand
 from django.utils import timezone
-from database.services import emprestimos_atrasados, usos_atrasados
+from estoque.services import emprestimos_atrasados, usos_atrasados
 
 def _formatar_atraso(limit_date):
     delta = timezone.now() - limit_date

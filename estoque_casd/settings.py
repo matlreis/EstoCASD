@@ -34,10 +34,10 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'database',
+    'estoque',
 ]
 
-AUTH_USER_MODEL = 'database.Admin'
+AUTH_USER_MODEL = 'estoque.Admin'
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
