@@ -49,13 +49,15 @@ class Item(models.Model):
     nome = models.CharField(max_length=255)
 
     class TipoEstoque(models.TextChoices):
-            CASD = 'CASD'
-            ZELA = 'ZELADORIA'
+        CASD = 'CASD'
+        ZELA = 'ZELADORIA'
 
     tipo_estoque = models.CharField(max_length=20, choices=TipoEstoque.choices)
 
     quant_total = models.PositiveIntegerField()
     quant_uso = models.PositiveIntegerField(default=0)
+
+    is_active = models.BooleanField(default=True)
 
     @property
     def quant_disponivel(self) -> int:
@@ -83,7 +85,7 @@ class Transacao(models.Model):
 
     @property
     def atrasado(self) -> bool:
-        return timezone.now() > self.limit_date
+        return (self.status == self.StatusTransacao.AT and timezone.now() > self.limit_date)
 
     class Meta:
         abstract = True
@@ -98,7 +100,7 @@ class Uso(Transacao):
     
 
 class LogEvento(models.Model):
-    ip_aparelho = models.GenericIPAddressField()
+    ip_aparelho = models.GenericIPAddressField(null=True, blank=True)
     
     event_date = models.DateTimeField(auto_now_add=True)
     event_type = models.CharField(max_length=20)
