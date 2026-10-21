@@ -1,0 +1,30 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% block title %}Estoque CASD{% endblock %}</title>
+    <link rel="stylesheet" href="{% static 'estoque/css/base.css' %}">
+</head>
+<body>
+    <header class="cabecalho">
+        <a href="{% url 'estoque:item_list' %}">Estoque CASD</a>
+    </header>
+
+    <main class="conteudo">
+        {% if messages %}
+            <ul class="mensagens">
+                {% for message in messages %}
+                    <li class="mensagem mensagem-{{ message.tags }}">{{ message }}</li>
+                {% endfor %}
+            </ul>
+        {% endif %}
+
+        {% block content %}{% endblock %}
+    </main>
+
+    <script src="{% static 'estoque/js/confirmar.js' %}"></script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>

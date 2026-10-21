@@ -1,64 +1,31 @@
-from django.shortcuts import render, redirect
-from .models import Item, Admin, LogAdmin
-from .forms import CreateItem, UpdateItem, CreateMorador
+from django.shortcuts import get_object_or_404, render, redirect
+from .models import Item
+from .forms import ItemForm
 
-def gerenciar_estoque(request):
-    if request.method == 'POST':
-        acao = request.POST.get('acao')
 
-        if acao == 'criar':  
-            create_form = CreateItem(request.POST)
-            if create_form.is_valid():
-                create_form.save()
+def item_list(request):
+    itens = Item.objects.all().filter(is_active=True)
+    context = {'itens': itens}
+    return render(request, 'estoque/item_list.html', context)
 
-        else:
-            id = request.POST.get('item_id')
-            if acao == 'atualizar':
-                item = Item.objects.get(id=id)
-                item.nome = request.POST.get('nome')
-                item.tipo_estoque = request.POST.get('tipo_estoque')
-                item.quant_total = request.POST.get('quant_total')
-                item.save()
-
-                
-                #update_form = UpdateItem(request.POST)
-                #update_form.save()
-
-            elif acao == 'deletar':
-                Item.objects.filter(id=id).delete()
-            
-            elif acao == 'emprestar':
-                return redirect('emprestimo')
-
-        return redirect('')
-    
-    else:
-        create_form = CreateItem()
-
-    itens = Item.objects.all()
-    usuarios = Admin.objects.all()
-    log_admin = LogAdmin.objects.all()
-
-    contexto = {
-        'create_form': create_form,
-        'itens': itens,
-        'usuarios': usuarios,
-        'log_admin': log_admin
-    }
-    return render(request, 'estoque.html', contexto)
-
-def pegar_emprestimo(request):
-    if request.method == 'POST':
-        morador_form = CreateMorador(request.POST)
-        if morador_form.is_valid():
-            morador_form.save()
-
-        redirect('emprestimo')
+def item_create(request):
+    if request.method == "POST":
+        item_form = ItemForm(request.POST)
+        if item_form.is_valid():
+            item_form.save()
+            return redirect('estoque:item_list')
 
     else:
-        morador_form = CreateMorador()
+        item_form = ItemForm()
 
-    contexto = {
-        'morador_form': morador_form
-    }
-    return render(request, 'emprestimo.html', contexto)
+    context = {'form': item_form}
+    return render(request, 'estoque/item_form.html', context)
+
+def item_update(request, pk):
+    return redirect('estoque:item_list')
+
+def item_delete(request, pk):
+    return redirect('estoque:item_list')
+
+def emprestimo_create(request, pk):
+    return redirect('estoque:item_list')

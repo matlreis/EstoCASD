@@ -1,0 +1,139 @@
+:root {
+    --cor-texto: #222;
+    --cor-fundo: #fff;
+    --cor-painel: #f0f0f0;
+    --cor-borda: #444;
+    --cor-primaria: #1d4ed8;
+    --cor-perigo: #b91c1c;
+    --cor-sucesso-fundo: #dcfce7;
+    --cor-erro-fundo: #fee2e2;
+}
+
+/* Layout */
+body {
+    margin: 0;
+    font-family: system-ui, sans-serif;
+    color: var(--cor-texto);
+    background: var(--cor-fundo);
+}
+
+.cabecalho {
+    padding: 12px 20px;
+    background: var(--cor-painel);
+}
+
+.cabecalho a {
+    font-weight: bold;
+    color: inherit;
+    text-decoration: none;
+}
+
+.conteudo {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+.titulo-pagina {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+/* Tabela */
+.tabela {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 30px;
+}
+
+.tabela th,
+.tabela td {
+    border: 1px solid var(--cor-borda);
+    padding: 8px;
+    text-align: left;
+}
+
+/* Formulário */
+.formulario {
+    max-width: 480px;
+    padding: 15px;
+    background: var(--cor-painel);
+    border-radius: 8px;
+}
+
+.formulario div {
+    margin-bottom: 12px;
+}
+
+.formulario label {
+    display: block;
+    margin-bottom: 4px;
+}
+
+.formulario input,
+.formulario select {
+    width: 100%;
+    padding: 5px;
+    box-sizing: border-box;
+}
+
+.errorlist {
+    margin: 4px 0;
+    padding: 0;
+    list-style: none;
+    color: var(--cor-perigo);
+}
+
+/* Ações e botões */
+.acoes {
+    display: flex;
+    gap: 8px;
+}
+
+.acoes form {
+    margin: 0;
+}
+
+.btn {
+    display: inline-block;
+    padding: 6px 12px;
+    border: 1px solid var(--cor-borda);
+    border-radius: 4px;
+    background: var(--cor-fundo);
+    color: var(--cor-texto);
+    font: inherit;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+.btn-primario {
+    border-color: var(--cor-primaria);
+    background: var(--cor-primaria);
+    color: #fff;
+}
+
+.btn-perigo {
+    border-color: var(--cor-perigo);
+    color: var(--cor-perigo);
+}
+
+/* Mensagens */
+.mensagens {
+    padding: 0;
+    list-style: none;
+}
+
+.mensagem {
+    padding: 10px;
+    margin-bottom: 8px;
+    border-radius: 4px;
+}
+
+.mensagem-success {
+    background: var(--cor-sucesso-fundo);
+}
+
+.mensagem-error {
+    background: var(--cor-erro-fundo);
+}

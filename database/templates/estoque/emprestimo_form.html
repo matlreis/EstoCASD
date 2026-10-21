@@ -1,0 +1,18 @@
+{% extends 'base.html' %}
+
+{% block title %}Emprestar {{ item.nome }} | Estoque CASD{% endblock %}
+
+{% block content %}
+    <h1>Emprestar: {{ item.nome }}</h1>
+    <p>Disponível: {{ item.quant_disponivel }} de {{ item.quant_total }}</p>
+
+    <form method="post" class="formulario">
+        {% csrf_token %}
+        {{ form.as_div }}
+
+        <div class="acoes">
+            <button type="submit" class="btn btn-primario">Confirmar empréstimo</button>
+            <a class="btn" href="{% url 'estoque:item_list' %}">Cancelar</a>
+        </div>
+    </form>
+{% endblock %}

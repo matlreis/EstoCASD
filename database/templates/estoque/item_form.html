@@ -1,0 +1,17 @@
+{% extends 'base.html' %}
+
+{% block title %}{% if item %}Editar {{ item.nome }}{% else %}Novo item{% endif %} | Estoque CASD{% endblock %}
+
+{% block content %}
+    <h1>{% if item %}Editar item{% else %}Novo item{% endif %}</h1>
+
+    <form method="post" class="formulario">
+        {% csrf_token %}
+        {{ form.as_div }}
+
+        <div class="acoes">
+            <button type="submit" class="btn btn-primario">Salvar</button>
+            <a class="btn" href="{% url 'estoque:item_list' %}">Cancelar</a>
+        </div>
+    </form>
+{% endblock %}
