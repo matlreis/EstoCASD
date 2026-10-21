@@ -47,4 +47,4 @@ manage.py makemigrations` e `uv run manage.py migrate` e então execute
 # Testes
 
 Execute o comando `uv run manage.py test` para rodar a bateria de testes, que
-pode ser consultada no arquivo `database/tests.py`.
+pode ser consultada no arquivo `estoque/tests.py`.
