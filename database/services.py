@@ -56,7 +56,7 @@ _RELATED = {
 def _atrasados(model):
     return (
         model.objects
-        .filter(is_active=True, limit_date__lt=timezone.now())
+        .filter(status=Transacao.StatusTransacao.AT, limit_date__lt=timezone.now())
         .select_related(*_RELATED[model])
         .order_by('limit_date')
     )

@@ -3,7 +3,7 @@ from datetime import timedelta
 from django.test import TestCase
 from django.utils import timezone
 
-from .models import Admin, Emprestimo, Item, Morador, Uso
+from .models import Transacao, Admin, Emprestimo, Item, Morador, Uso
 from .services import emprestimos_atrasados, usos_atrasados
 
 
@@ -23,7 +23,7 @@ class EmprestimosAtrasadosTestCase(TestCase):
         self.assertNotIn(emprestimo, emprestimos_atrasados())
 
     def test_emprestimo_devolvido_nao_aparece(self):
-        emprestimo = Emprestimo.objects.create(id_item=self.item, id_morador=self.morador, limit_date=self.ontem, is_active=False)
+        emprestimo = Emprestimo.objects.create(id_item=self.item, id_morador=self.morador, limit_date=self.ontem, status=Transacao.StatusTransacao.DE)
         self.assertNotIn(emprestimo, emprestimos_atrasados())
 
 
@@ -43,5 +43,5 @@ class UsosAtrasadosTestCase(TestCase):
         self.assertNotIn(uso, usos_atrasados())
 
     def test_uso_devolvido_nao_aparece(self):
-        uso = Uso.objects.create(id_item=self.item, id_admin=self.admin, limit_date=self.ontem, is_active=False)
+        uso = Uso.objects.create(id_item=self.item, id_admin=self.admin, limit_date=self.ontem, status=Transacao.StatusTransacao.DE)
         self.assertNotIn(uso, usos_atrasados())
