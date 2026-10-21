@@ -10,11 +10,11 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/6.1/ref/settings/
 """
 
-import os
-from dotenv import load_dotenv
-
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/6.1/howto/deployment/checklist/
+
+import os
+from dotenv import load_dotenv
 
 load_dotenv()
 SECRET_KEY = os.environ['DJANGO_SECRET_KEY']
@@ -38,9 +38,10 @@ INSTALLED_APPS = [
     'autenticacao'
 ]
 
-LOGIN_URL = 'autenticacao:login'
+# Authentication
 
-AUTH_USER_MODEL = 'estoque.Admin'
+LOGIN_URL = 'autenticacao:login'
+AUTH_USER_MODEL = 'autenticacao.Admin'
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',

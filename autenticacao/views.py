@@ -1,7 +1,7 @@
 from django.shortcuts import render, redirect
 from django.contrib.auth import authenticate, login
 from .forms import SignUpForm, LoginForm
-from estoque.models import LogAdmin
+from .models import LogAdmin
 
 def fazer_sign_up(request):
     if request.method == 'POST':

@@ -3,7 +3,8 @@ from datetime import timedelta
 from django.test import TestCase
 from django.utils import timezone
 
-from .models import Transacao, Admin, Emprestimo, Item, Morador, Uso
+from .models import Transacao, Emprestimo, Item, Morador, Uso
+from autenticacao.models import Admin
 from .services import emprestimos_atrasados, usos_atrasados
 
 
