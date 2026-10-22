@@ -9,20 +9,20 @@
 </head>
 <body>
     <header class="cabecalho">
-    <a href="{% url 'estoque:item_list' %}">Estoque CASD</a>
+        <a href="{% url 'estoque:item_list' %}">Estoque CASD</a>
 
-    <nav class="cabecalho-usuario">
-        {% if user.is_authenticated %}
-            <span>{{ user.nome }}</span>
-            <form method="post" action="{% url 'autenticacao:logout' %}">
-                {% csrf_token %}
-                <button type="submit" class="btn">Sair</button>
-            </form>
-        {% else %}
-            <a href="{% url 'autenticacao:login' %}">Entrar</a>
-        {% endif %}
-    </nav>
-</header>
+        <nav class="cabecalho-usuario">
+            {% if user.is_authenticated %}
+                <span>{{ user.nome }}</span>
+                <form method="post" action="{% url 'autenticacao:logout' %}">
+                    {% csrf_token %}
+                    <button type="submit" class="btn">Sair</button>
+                </form>
+            {% else %}
+                <a href="{% url 'autenticacao:login' %}">Entrar</a>
+            {% endif %}
+        </nav>
+    </header>
 
     <main class="conteudo">
         {% if messages %}

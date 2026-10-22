@@ -9,7 +9,6 @@
     --cor-erro-fundo: #fee2e2;
 }
 
-/* Layout */
 body {
     margin: 0;
     font-family: system-ui, sans-serif;
@@ -53,7 +52,6 @@ body {
     justify-content: space-between;
 }
 
-/* Tabela */
 .tabela {
     width: 100%;
     border-collapse: collapse;
@@ -67,7 +65,6 @@ body {
     text-align: left;
 }
 
-/* Formulário */
 .formulario {
     max-width: 480px;
     padding: 15px;
@@ -98,9 +95,9 @@ body {
     color: var(--cor-perigo);
 }
 
-/* Ações e botões */
 .acoes {
     display: flex;
+    align-items: baseline;
     gap: 8px;
 }
 
@@ -131,7 +128,6 @@ body {
     color: var(--cor-perigo);
 }
 
-/* Mensagens */
 .mensagens {
     padding: 0;
     list-style: none;
