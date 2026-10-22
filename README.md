@@ -44,7 +44,10 @@ manage.py makemigrations` e `uv run manage.py migrate` e então execute
 `uv run manage.py runserver` para rodar o servidor de desenvolvimento na porta 
 8000.
 
+> Nota: algumas migrações (por exemplo as que envolvem renomeações) requerem que o banco de dados local seja recriado do zero.
+
 # Testes
 
 Execute o comando `uv run manage.py test` para rodar a bateria de testes, que
-pode ser consultada no arquivo `estoque/tests.py`.
+pode ser consultada nos arquivos `test.py` em cada aplicativo (`autenticacao`, 
+`estoque` e `notificacao`).
