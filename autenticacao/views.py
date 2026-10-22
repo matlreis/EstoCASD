@@ -14,9 +14,8 @@ def fazer_sign_up(request):
         form = SignUpForm(request.POST)
         if form.is_valid():
             dados = form.cleaned_data
-            ip = request.META.get('REMOTE_ADDR')
             AutenticacaoService.cadastrar(dados['nome'], dados['email'], 
-                dados['senha'], ip)
+                dados['senha'])
             messages.success(request, 'Administrador cadastrado.')
             return redirect('estoque:item_list')
     else:
