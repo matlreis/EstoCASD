@@ -2,6 +2,7 @@ from django.db import models
 from django.conf import settings
 from django.utils import timezone
 
+from core.models import LogEvento
 
 class Item(models.Model):
     nome = models.CharField(max_length=255)
@@ -60,16 +61,6 @@ class Emprestimo(Transacao):
 class Uso(Transacao):
     id_admin = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, db_column='id_admin')
     
-
-class LogEvento(models.Model):
-    ip_aparelho = models.GenericIPAddressField(null=True, blank=True)
-    
-    event_date = models.DateTimeField(auto_now_add=True)
-    event_type = models.CharField(max_length=20)
-
-    class Meta:
-        abstract = True
-
 
 class LogUso(LogEvento):
     id_uso = models.ForeignKey(Uso, on_delete=models.CASCADE, db_column='id_uso')
