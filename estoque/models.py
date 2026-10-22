@@ -28,6 +28,12 @@ class Morador(models.Model):
     email = models.EmailField(unique=True)
 
 
+class TransacaoQuerySet(models.QuerySet):
+    def atrasados(self):
+        return self.filter(status=Transacao.StatusTransacao.AT, 
+                           limit_date__lt=timezone.now())
+
+
 class Transacao(models.Model):
     id_item = models.ForeignKey(Item, on_delete=models.PROTECT, db_column='id_item')
 
@@ -41,9 +47,7 @@ class Transacao(models.Model):
     limit_date = models.DateTimeField()
     quant = models.PositiveIntegerField(default=1)
 
-    @property
-    def atrasado(self) -> bool:
-        return (self.status == self.StatusTransacao.AT and timezone.now() > self.limit_date)
+    objects = TransacaoQuerySet.as_manager()
 
     class Meta:
         abstract = True

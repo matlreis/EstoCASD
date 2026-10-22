@@ -35,7 +35,7 @@ class Admin(AbstractBaseUser, PermissionsMixin):
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = ['nome']
 
-    objects:AdminManager = AdminManager()
+    objects = AdminManager()
 
     class Meta:
         db_table = 'admin'
