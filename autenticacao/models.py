@@ -44,7 +44,7 @@ class Admin(AbstractBaseUser, PermissionsMixin):
 
     objects = AdminManager()
 
-    class Meta(LogEvento.Meta):
+    class Meta:
         db_table = 'admin'
         verbose_name = 'administrador'
         verbose_name_plural = 'administradores'
