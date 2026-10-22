@@ -1,8 +1,7 @@
 from django.core.exceptions import ValidationError
 from django.db import transaction
-from django.utils import timezone
 
-from .models import Emprestimo, Item, Transacao, Uso
+from .models import Item, Transacao
 
 
 class EstoqueService:
@@ -46,23 +45,3 @@ class EstoqueService:
 
         item.is_active = False
         item.save(update_fields=['is_active'])
-
-
-_RELATED = {
-    Emprestimo: ('id_item', 'id_morador'),
-    Uso: ('id_item', 'id_admin')
-}
-
-def _atrasados(model):
-    return (
-        model.objects
-        .filter(status=Transacao.StatusTransacao.AT, limit_date__lt=timezone.now())
-        .select_related(*_RELATED[model])
-        .order_by('limit_date')
-    )
-
-def emprestimos_atrasados():
-    return _atrasados(Emprestimo)
-
-def usos_atrasados():
-    return _atrasados(Uso)
