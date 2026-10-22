@@ -5,7 +5,9 @@
 {% block content %}
     <div class="titulo-pagina">
         <h1>Controle de Estoque</h1>
-        <a class="btn btn-primario" href="{% url 'estoque:item_create' %}">Adicionar item</a>
+        {% if user.is_authenticated %}
+            <a class="btn btn-primario" href="{% url 'estoque:item_create' %}">Adicionar item</a>
+        {% endif %}
     </div>
 
     <table class="tabela">
@@ -27,12 +29,14 @@
                         {% if item.tipo_estoque == 'CASD' %}
                             <a class="btn" href="{% url 'estoque:emprestimo_create' item.pk %}">Emprestar</a>
                         {% endif %}
-                        <a class="btn" href="{% url 'estoque:item_update' item.pk %}">Editar</a>
-                        <form method="post" action="{% url 'estoque:item_delete' item.pk %}"
-                              data-confirm="Remover {{ item.nome }} do estoque?">
-                            {% csrf_token %}
-                            <button type="submit" class="btn btn-perigo">Remover</button>
-                        </form>
+                        {% if user.is_authenticated %}
+                            <a class="btn" href="{% url 'estoque:item_update' item.pk %}">Editar</a>
+                            <form method="post" action="{% url 'estoque:item_delete' item.pk %}"
+                                  data-confirm="Remover {{ item.nome }} do estoque?">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-perigo">Remover</button>
+                            </form>
+                        {% endif %}
                     </td>
                 </tr>
             {% empty %}

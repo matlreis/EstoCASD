@@ -1,4 +1,5 @@
 from django.contrib import messages
+from django.contrib.auth.decorators import login_not_required
 from django.core.exceptions import ValidationError
 from django.shortcuts import get_object_or_404, render, redirect
 from django.views.decorators.http import require_POST
@@ -7,8 +8,11 @@ from .forms import ItemForm
 from .services import EstoqueService
 
 
+@login_not_required
 def item_list(request):
-    itens = EstoqueService.list_items()
+    # usuário comum vê apenas o estoque do CASD
+    tipo_estoque = None if request.user.is_authenticated else Item.TipoEstoque.CASD
+    itens = EstoqueService.list_items(tipo_estoque)
     context = {'itens': itens}
     return render(request, 'estoque/item_list.html', context)
 
@@ -57,5 +61,6 @@ def item_delete(request, pk):
         messages.success(request, 'Item removido.')
     return redirect('estoque:item_list')
 
+@login_not_required
 def emprestimo_create(request, pk):
     return redirect('estoque:item_list')

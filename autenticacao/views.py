@@ -1,6 +1,7 @@
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth import login
+from django.contrib.auth.decorators import login_not_required
 from django.core.exceptions import ValidationError
 from django.shortcuts import render, redirect
 from django.utils.http import url_has_allowed_host_and_scheme
@@ -24,6 +25,7 @@ def fazer_sign_up(request):
     context = { 'form': form }
     return render(request, 'autenticacao/signup.html', context)
 
+@login_not_required
 def fazer_login(request):
     if request.method == 'POST':
         form = LoginForm(request.POST)
