@@ -1,6 +1,6 @@
-from django.db.models.signals import post_save
 from django.contrib.auth.signals import user_logged_in, user_logged_out
 from django.dispatch import receiver
+
 from .models import LogAdmin
 
 @receiver(user_logged_in)
@@ -10,5 +10,8 @@ def log_admin_login(sender, request, user, **kwargs):
 
 @receiver(user_logged_out)
 def log_admin_logout(sender, request, user, **kwargs):
+    # logout sem sessão ativa
+    if user is None:
+        return
     ip = request.META.get('REMOTE_ADDR')
     LogAdmin.objects.create(id_admin=user, ip_aparelho=ip, event_type="LOGOUT")

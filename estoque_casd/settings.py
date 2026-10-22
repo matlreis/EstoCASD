@@ -50,7 +50,10 @@ INSTALLED_APPS = [
 # Authentication
 
 LOGIN_URL = 'autenticacao:login'
+LOGOUT_REDIRECT_URL = 'estoque:item_list'
 AUTH_USER_MODEL = 'autenticacao.Admin'
+
+# Middleware
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',

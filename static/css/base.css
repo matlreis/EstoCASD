@@ -18,8 +18,21 @@ body {
 }
 
 .cabecalho {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
     padding: 12px 20px;
     background: var(--cor-painel);
+}
+
+.cabecalho-usuario {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.cabecalho-usuario form {
+    margin: 0;
 }
 
 .cabecalho a {
