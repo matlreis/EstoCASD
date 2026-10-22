@@ -27,7 +27,7 @@ def fazer_sign_up(request):
     contexto = {
         'form': form,
     }
-    return render(request, 'signup.html', contexto)
+    return render(request, 'autenticacao/signup.html', contexto)
 
 def fazer_login(request):
     if request.method == 'POST':
@@ -50,4 +50,4 @@ def fazer_login(request):
     contexto = {
         'form': form,
     }
-    return render(request, 'login.html', contexto)
+    return render(request, 'autenticacao/login.html', contexto)

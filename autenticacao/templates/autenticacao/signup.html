@@ -1,0 +1,27 @@
+{% extends 'base.html' %}
+
+{% block title %}Cadastro | Estoque CASD{% endblock %}
+
+{% block content %}
+    <div class="titulo-pagina">
+        <h1>Controle de Estoque</h1>
+    </div>
+
+    <div>
+        <h2>Cadastrar Administrador</h2>
+        
+        <form method="post" class="formulario">
+            {% csrf_token %}
+            {{ form.as_p }}
+            
+            <button type="submit" class="btn btn-primario">Cadastrar</button>
+        </form>
+
+        <div class="conteudo">
+            <p>Já possui uma conta?</p>
+            <a href="{% url 'autenticacao:login' %}">
+                <button type="button" class="btn btn-primario">Fazer Login</button>
+            </a>
+        </div>
+    </div>
+{% endblock %}
