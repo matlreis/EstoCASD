@@ -26,7 +26,7 @@ wheels = [
 ]
 
 [[package]]
-name = "estoque-casd"
+name = "estocasd"
 version = "0.1.0"
 source = { virtual = "." }
 dependencies = [

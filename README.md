@@ -1,4 +1,4 @@
-# Estoque-CASD
+# EstoCASD
 Sistema para controle de estoque do Centro Acadêmico Santos Dumont (CASD).
 
 # Requisitos

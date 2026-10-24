@@ -4,12 +4,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>{% block title %}Estoque CASD{% endblock %}</title>
+    <title>{% block title %}EstoCASD{% endblock %}</title>
     <link rel="stylesheet" href="{% static 'css/base.css' %}">
 </head>
 <body>
     <header class="cabecalho">
-        <a href="{% url 'estoque:item_list' %}">Estoque CASD</a>
+        <a href="{% url 'estoque:item_list' %}">EstoCASD</a>
 
         <nav class="cabecalho-usuario">
             {% if user.is_authenticated %}

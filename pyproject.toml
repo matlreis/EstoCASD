@@ -1,5 +1,5 @@
 [project]
-name = "estoque-casd"
+name = "estocasd"
 version = "0.1.0"
 description = "Sistema para controle de estoque do Centro Acadêmico Santos Dumont (CASD)"
 readme = "README.md"
