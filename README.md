@@ -14,9 +14,9 @@ instruções a seguir.
 
 ## Django
 
-Execute o comando `uv run python -c 'from django.core.management.utils import 
-get_random_secret_key; print(get_random_secret_key())'` para gerar a secret-key 
-do Django e a insira no arquivo `.env` no seguinte formato:
+Execute o comando `uv run python -c 'from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())'` 
+para gerar a secret-key  do Django e a insira no arquivo `.env` no seguinte 
+formato:
 
     DJANGO_SECRET_KEY="your-django-secret-key"
 
@@ -39,12 +39,12 @@ nome do banco de dados, ao nome do usuário e à senha do usuário escolhida.
 Rode o comando `uv run manage.py check` para verificar se o ambiente foi 
 corretamente configurado.
 
-Para acessar o servidor no localhost, realize as migrações com `uv run
-manage.py makemigrations` e `uv run manage.py migrate` e então execute
-`uv run manage.py runserver` para rodar o servidor de desenvolvimento na porta 
-8000.
+Para acessar o servidor no localhost, realize as migrações com e 
+`uv run manage.py migrate` e então execute `uv run manage.py runserver` para 
+rodar o servidor de desenvolvimento na porta 8000.
 
-> Nota: algumas migrações (por exemplo as que envolvem renomeações) requerem que o banco de dados local seja recriado do zero.
+> Nota: algumas migrações requerem que o banco de dados local seja recriado do 
+zero.
 
 # Testes
 
