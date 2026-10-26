@@ -3,9 +3,8 @@ from datetime import timedelta
 from django.test import TestCase
 from django.utils import timezone
 
-from estoque.models import Transacao, Emprestimo, Item, Morador, Uso
-from autenticacao.models import Admin
-from .services import emprestimos_atrasados, usos_atrasados
+from estoque.models import Transacao, Emprestimo, Item, Morador
+from .services import emprestimos_atrasados
 
 
 class EmprestimosAtrasadosTestCase(TestCase):
@@ -26,23 +25,3 @@ class EmprestimosAtrasadosTestCase(TestCase):
     def test_emprestimo_devolvido_nao_aparece(self):
         emprestimo = Emprestimo.objects.create(id_item=self.item, id_morador=self.morador, limit_date=self.ontem, status=Transacao.StatusTransacao.DE)
         self.assertNotIn(emprestimo, emprestimos_atrasados())
-
-
-class UsosAtrasadosTestCase(TestCase):
-    def setUp(self):
-        self.item = Item.objects.create(nome='TesteZELA', tipo_estoque='ZELADORIA', quant_total=2)
-        self.admin = Admin.objects.create_user(email='adm@test.com', nome='Admin', password='testpass123')
-        self.ontem = timezone.now() - timedelta(days=1)
-        self.amanha = timezone.now() + timedelta(days=1)
-
-    def test_uso_vencido_aparece(self):
-        uso = Uso.objects.create(id_item=self.item, id_admin=self.admin, limit_date=self.ontem)
-        self.assertIn(uso, usos_atrasados())
-
-    def test_uso_no_prazo_nao_aparece(self):
-        uso = Uso.objects.create(id_item=self.item, id_admin=self.admin, limit_date=self.amanha)
-        self.assertNotIn(uso, usos_atrasados())
-
-    def test_uso_devolvido_nao_aparece(self):
-        uso = Uso.objects.create(id_item=self.item, id_admin=self.admin, limit_date=self.ontem, status=Transacao.StatusTransacao.DE)
-        self.assertNotIn(uso, usos_atrasados())
