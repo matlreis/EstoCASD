@@ -29,3 +29,19 @@ class GetClientIpTestCase(SimpleTestCase):
         request = self.factory.get('/', REMOTE_ADDR='203.0.113.5', HTTP_X_FORWARDED_FOR='')
         ip = get_client_ip(request)
         self.assertEqual(ip, '203.0.113.5')
+
+    def test_x_forwarded_for_com_espacos_retorna_o_ip_limpo(self):
+        request = self.factory.get('/', HTTP_X_FORWARDED_FOR='  203.0.113.5  , 10.0.0.1')
+        ip = get_client_ip(request)
+        self.assertEqual(ip, '203.0.113.5')
+
+    def test_x_forwarded_for_aceita_ipv6(self):
+        request = self.factory.get('/', HTTP_X_FORWARDED_FOR='2001:db8::1, 10.0.0.1')
+        ip = get_client_ip(request)
+        self.assertEqual(ip, '2001:db8::1')
+
+    def test_sem_x_forwarded_for_e_sem_remote_addr_retorna_none(self):
+        request = self.factory.get('/')
+        del request.META['REMOTE_ADDR']
+        ip = get_client_ip(request)
+        self.assertIsNone(ip)
