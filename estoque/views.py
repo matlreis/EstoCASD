@@ -3,38 +3,36 @@ from django.contrib.auth.decorators import login_not_required
 from django.core.exceptions import ValidationError
 from django.shortcuts import get_object_or_404, render, redirect
 from django.views.decorators.http import require_POST
-from .models import Item
-from .forms import ItemForm
+from .models import ItemCASD
+from .forms import ItemCASDForm
 from .services import EstoqueService
 
 
 @login_not_required
 def item_list(request):
-    # usuário comum vê apenas o estoque do CASD
-    tipo_estoque = None if request.user.is_authenticated else Item.TipoEstoque.CASD
-    itens = EstoqueService.list_items(tipo_estoque)
+    itens = EstoqueService.list_items()
     context = {'itens': itens}
     return render(request, 'estoque/item_list.html', context)
 
 def item_create(request):
     if request.method == "POST":
-        item_form = ItemForm(request.POST)
+        item_form = ItemCASDForm(request.POST)
         if item_form.is_valid():
             EstoqueService.create_item(item_form.cleaned_data)
             messages.success(request, 'Item cadastrado.')
             return redirect('estoque:item_list')
 
     else:
-        item_form = ItemForm()
+        item_form = ItemCASDForm()
 
     context = {'form': item_form}
     return render(request, 'estoque/item_form.html', context)
 
 def item_update(request, pk):
-    item = get_object_or_404(Item, pk=pk, is_active=True)
+    item = get_object_or_404(ItemCASD, pk=pk, is_active=True)
 
     if request.method == "POST":
-        item_form = ItemForm(request.POST, instance=item)
+        item_form = ItemCASDForm(request.POST, instance=item)
         if item_form.is_valid():
             try:
                 EstoqueService.update_item(item, item_form.cleaned_data)
@@ -45,14 +43,14 @@ def item_update(request, pk):
                 return redirect('estoque:item_list')
 
     else:
-        item_form = ItemForm(instance=item)
+        item_form = ItemCASDForm(instance=item)
 
     context = {'form': item_form, 'item': item}
     return render(request, 'estoque/item_form.html', context)
 
 @require_POST
 def item_delete(request, pk):
-    item = get_object_or_404(Item, pk=pk, is_active=True)
+    item = get_object_or_404(ItemCASD, pk=pk, is_active=True)
     try:
         EstoqueService.delete_item(item)
     except ValidationError as e:
