@@ -1,5 +1,5 @@
 from io import StringIO
-from unittest import mock
+from unittest import expectedFailure, mock
 
 from django.conf import settings
 from django.core.exceptions import ValidationError
@@ -616,3 +616,79 @@ class PainelAdminTestCase(TestCase):
         resposta = self.client.post(url, {'post': 'yes'})
         self.assertEqual(resposta.status_code, 403)
         self.assertTrue(LogAdmin.objects.filter(pk=self.log.pk).exists())
+
+
+# Bugs conhecidos: cada teste descreve o comportamento correto e falha hoje.
+# Ao corrigir um bug, o teste vira "unexpected success": basta remover o @expectedFailure.
+@SENHA_RAPIDA
+class XForwardedForInvalidoTestCase(TestCase):
+    # só falha no PostgreSQL: o SQLite aceita qualquer texto no campo de IP
+    def setUp(self):
+        self.admin = criar_admin()
+        self.cliente = Client(raise_request_exception=False)  # devolve o 500 em vez de propagar a exceção
+
+    @expectedFailure
+    def test_login_nao_da_erro(self):
+        credenciais = {'email': 'a@test.com', 'senha': SENHA}
+        resposta = self.cliente.post(reverse('autenticacao:login'), credenciais, HTTP_X_FORWARDED_FOR='unknown')
+        self.assertEqual(resposta.status_code, 302)
+
+    @expectedFailure
+    def test_logout_nao_da_erro(self):
+        self.cliente.force_login(self.admin)
+        resposta = self.cliente.post(reverse('autenticacao:logout'), HTTP_X_FORWARDED_FOR='unknown')
+        self.assertEqual(resposta.status_code, 302)
+
+    @expectedFailure
+    def test_cadastro_nao_da_erro(self):
+        self.cliente.force_login(self.admin)
+        dados = {'nome': 'Bob', 'email': 'b@test.com', 'senha': SENHA, 'confirmar_senha': SENHA}
+        resposta = self.cliente.post(reverse('autenticacao:cadastro'), dados, HTTP_X_FORWARDED_FOR='unknown')
+        self.assertEqual(resposta.status_code, 302)
+
+
+@SENHA_RAPIDA
+class EmailSemDiferenciarMaiusculasTestCase(TestCase):
+    def setUp(self):
+        self.admin = criar_admin()
+        self.dados = {'nome': 'Arthur', 'senha': SENHA, 'confirmar_senha': SENHA}
+
+    @expectedFailure
+    def test_cadastro_recusa_email_repetido_com_dominio_em_maiusculas(self):
+        cliente = Client(raise_request_exception=False)  # hoje a view devolve 500 (IntegrityError)
+        cliente.force_login(self.admin)
+        resposta = cliente.post(reverse('autenticacao:cadastro'), {**self.dados, 'email': 'a@TEST.COM'})
+        self.assertEqual(resposta.status_code, 200)
+        self.assertIn('email', resposta.context['form'].errors)
+
+    @expectedFailure
+    def test_formulario_recusa_email_repetido_com_maiusculas_antes_do_arroba(self):
+        form = SignUpForm({**self.dados, 'email': 'A@test.com'})
+        self.assertIn('email', form.errors)
+
+    @expectedFailure
+    def test_login_aceita_dominio_em_maiusculas(self):
+        self.client.post(reverse('autenticacao:login'), {'email': 'a@TEST.COM', 'senha': SENHA})
+        self.assertEqual(int(self.client.session['_auth_user_id']), self.admin.pk)
+
+    @expectedFailure
+    def test_login_aceita_maiusculas_antes_do_arroba(self):
+        self.client.post(reverse('autenticacao:login'), {'email': 'A@test.com', 'senha': SENHA})
+        self.assertEqual(int(self.client.session['_auth_user_id']), self.admin.pk)
+
+
+@SENHA_RAPIDA
+class SenhaComEspacoTestCase(TestCase):
+    @expectedFailure
+    def test_senha_criada_no_painel_com_espaco_final_consegue_fazer_login(self):
+        gestor = Admin.objects.create_superuser(email='g@test.com', nome='Gestor', password=SENHA)
+        self.client.force_login(gestor)
+        senha = f'{SENHA} '
+        self.client.post(reverse('admin:autenticacao_admin_add'), {
+            'email': 'n@test.com', 'nome': 'Nova', 'usable_password': 'true',
+            'password1': senha, 'password2': senha,
+        })
+        conta = Admin.objects.get(email='n@test.com')
+        novo_cliente = Client()
+        novo_cliente.post(reverse('autenticacao:login'), {'email': 'n@test.com', 'senha': senha})
+        self.assertEqual(int(novo_cliente.session['_auth_user_id']), conta.pk)
