@@ -89,7 +89,7 @@ templates em `<app>/templates/<app>/`.
   redirect*. Caso contrário, o usuário vai para `LOGIN_REDIRECT_URL`.
 - **Validação de senha:** o `SignUpForm.clean()` roda os
   `AUTH_PASSWORD_VALIDATORS` com uma instância temporária de `Admin`, para o
-  validador de similaridade comparar a senha com nome e e-mail. Com
+  validador de similaridade comparar a senha com o e-mail. Com
   `LANGUAGE_CODE='pt-br'`, as mensagens saem em português.
 - **Logs automáticos** (`autenticacao/signals.py`, registrados em
   `AutenticacaoConfig.ready()`):

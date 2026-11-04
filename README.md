@@ -49,5 +49,7 @@ zero.
 # Testes
 
 Execute o comando `uv run manage.py test` para rodar a bateria de testes, que
-pode ser consultada nos arquivos `test.py` em cada aplicativo (`autenticacao`, 
-`estoque` e `notificacao`).
+pode ser consultada nos arquivos `tests.py` em cada aplicativo (`autenticacao`, 
+`estoque`, `notificacao` e `core`). É possível, também, realizar os testes de 
+um aplicativo específico com `uv run manage.py test app`, em que `app` deve ser
+substituido por um dos aplicativos do sistema.
