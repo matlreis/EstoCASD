@@ -523,3 +523,96 @@ class RequestAtualMiddlewareTestCase(SimpleTestCase):
         with self.assertRaises(RuntimeError):
             RequestAtualMiddleware(view)(self.request)
         self.assertIsNone(get_request_atual())
+
+
+@SENHA_RAPIDA
+class PainelAdminTestCase(TestCase):
+    def setUp(self):
+        self.gestor = Admin.objects.create_superuser(email='g@test.com', nome='Gestor', password=SENHA)
+        self.comum = criar_admin()
+        self.log = LogAdmin.objects.filter(id_admin=self.comum).get()
+        self.lista_de_contas = reverse('admin:autenticacao_admin_changelist')
+        self.nova_conta = {'email': 'n@test.com', 'nome': 'Nova', 'usable_password': 'true',
+                           'password1': SENHA, 'password2': SENHA}
+
+    def salvar_conta(self, conta, **campos):
+        url = reverse('admin:autenticacao_admin_change', args=[conta.pk])
+        return self.client.post(url, {'email': conta.email, 'nome': conta.nome, 'is_active': 'on', **campos})
+
+    def test_anonimo_nao_acessa_o_painel(self):
+        resposta = self.client.get(self.lista_de_contas)
+        self.assertRedirects(resposta, f"{reverse('autenticacao:login')}?next={self.lista_de_contas}")
+
+    def test_admin_comum_nao_acessa_o_painel(self):
+        self.client.force_login(self.comum)
+        resposta = self.client.get(self.lista_de_contas)
+        self.assertRedirects(resposta, f"{reverse('admin:login')}?next={self.lista_de_contas}",
+                             fetch_redirect_response=False)
+
+    def test_gestor_abre_as_telas_do_painel(self):
+        self.client.force_login(self.gestor)
+        telas = [
+            self.lista_de_contas,
+            reverse('admin:autenticacao_admin_add'),
+            reverse('admin:autenticacao_admin_change', args=[self.comum.pk]),
+            reverse('admin:autenticacao_logadmin_changelist'),
+            reverse('admin:autenticacao_logadmin_change', args=[self.log.pk]),
+        ]
+        for tela in telas:
+            with self.subTest(tela=tela):
+                resposta = self.client.get(tela)
+                self.assertEqual(resposta.status_code, 200)
+
+    def test_marcar_gestor_libera_o_painel(self):
+        self.client.force_login(self.gestor)
+        self.salvar_conta(self.comum, is_superuser='on')
+        self.comum.refresh_from_db()
+        self.assertTrue(self.comum.is_superuser)
+        self.assertTrue(self.comum.is_staff)
+
+    def test_desmarcar_gestor_retira_o_painel(self):
+        outro_gestor = Admin.objects.create_superuser(email='o@test.com', nome='Outro', password=SENHA)
+        self.client.force_login(self.gestor)
+        self.salvar_conta(outro_gestor)
+        outro_gestor.refresh_from_db()
+        self.assertFalse(outro_gestor.is_superuser)
+        self.assertFalse(outro_gestor.is_staff)
+
+    def test_conta_criada_no_painel_guarda_a_senha(self):
+        self.client.force_login(self.gestor)
+        self.client.post(reverse('admin:autenticacao_admin_add'), self.nova_conta)
+        conta = Admin.objects.get(email='n@test.com')
+        self.assertTrue(conta.check_password(SENHA))
+
+    def test_conta_criada_no_painel_registra_o_ip(self):
+        self.client.force_login(self.gestor)
+        self.client.post(reverse('admin:autenticacao_admin_add'), self.nova_conta, REMOTE_ADDR='203.0.113.5')
+        log = LogAdmin.objects.get(id_admin__email='n@test.com', event_type='CONTA_CRIADA')
+        self.assertEqual(log.ip_aparelho, '203.0.113.5')
+
+    def test_conta_nao_pode_ser_excluida(self):
+        self.client.force_login(self.gestor)
+        url = reverse('admin:autenticacao_admin_delete', args=[self.comum.pk])
+        resposta = self.client.post(url, {'post': 'yes'})
+        self.assertEqual(resposta.status_code, 403)
+        self.assertTrue(Admin.objects.filter(pk=self.comum.pk).exists())
+
+    def test_log_nao_pode_ser_criado(self):
+        self.client.force_login(self.gestor)
+        resposta = self.client.post(reverse('admin:autenticacao_logadmin_add'), {'event_type': 'FALSO'})
+        self.assertEqual(resposta.status_code, 403)
+
+    def test_log_nao_pode_ser_editado(self):
+        self.client.force_login(self.gestor)
+        url = reverse('admin:autenticacao_logadmin_change', args=[self.log.pk])
+        resposta = self.client.post(url, {'event_type': 'FALSO'})
+        self.assertEqual(resposta.status_code, 403)
+        self.log.refresh_from_db()
+        self.assertEqual(self.log.event_type, 'CONTA_CRIADA')
+
+    def test_log_nao_pode_ser_apagado(self):
+        self.client.force_login(self.gestor)
+        url = reverse('admin:autenticacao_logadmin_delete', args=[self.log.pk])
+        resposta = self.client.post(url, {'post': 'yes'})
+        self.assertEqual(resposta.status_code, 403)
+        self.assertTrue(LogAdmin.objects.filter(pk=self.log.pk).exists())
