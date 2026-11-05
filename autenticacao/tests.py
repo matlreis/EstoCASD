@@ -667,12 +667,8 @@ class EmailSemDiferenciarMaiusculasTestCase(TestCase):
         self.assertEqual(int(self.client.session['_auth_user_id']), self.admin.pk)
 
 
-
-# Bug conhecido: o teste descreve o comportamento correto e falha hoje.
-# Ao corrigir o bug, o teste vira "unexpected success": basta remover o @expectedFailure.
 @SENHA_RAPIDA
 class SenhaComEspacoTestCase(TestCase):
-    @expectedFailure
     def test_senha_criada_no_painel_com_espaco_final_consegue_fazer_login(self):
         gestor = Admin.objects.create_superuser(email='g@test.com', nome='Gestor', password=SENHA)
         self.client.force_login(gestor)

@@ -5,11 +5,12 @@ from django.core.exceptions import ValidationError
 
 class SignUpForm(forms.ModelForm):
     senha = forms.CharField(
-        widget=forms.PasswordInput, 
+        widget=forms.PasswordInput,
+        strip=False,
         label="Senha",
         help_text=password_validation.password_validators_help_text_html(),
     )
-    confirmar_senha = forms.CharField(widget=forms.PasswordInput, label="Confirmar Senha")
+    confirmar_senha = forms.CharField(widget=forms.PasswordInput, strip=False, label="Confirmar Senha")
 
     class Meta:
         model = get_user_model()
@@ -34,4 +35,4 @@ class SignUpForm(forms.ModelForm):
 
 class LoginForm(forms.Form):
     email = forms.EmailField(label="Email")
-    senha = forms.CharField(widget=forms.PasswordInput, label="Senha")
+    senha = forms.CharField(widget=forms.PasswordInput, strip=False, label="Senha")
