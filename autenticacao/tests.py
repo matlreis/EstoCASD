@@ -618,28 +618,22 @@ class PainelAdminTestCase(TestCase):
         self.assertTrue(LogAdmin.objects.filter(pk=self.log.pk).exists())
 
 
-# Bugs conhecidos: cada teste descreve o comportamento correto e falha hoje.
-# Ao corrigir um bug, o teste vira "unexpected success": basta remover o @expectedFailure.
 @SENHA_RAPIDA
 class XForwardedForInvalidoTestCase(TestCase):
-    # só falha no PostgreSQL: o SQLite aceita qualquer texto no campo de IP
     def setUp(self):
         self.admin = criar_admin()
-        self.cliente = Client(raise_request_exception=False)  # devolve o 500 em vez de propagar a exceção
+        self.cliente = Client(raise_request_exception=False)
 
-    @expectedFailure
     def test_login_nao_da_erro(self):
         credenciais = {'email': 'a@test.com', 'senha': SENHA}
         resposta = self.cliente.post(reverse('autenticacao:login'), credenciais, HTTP_X_FORWARDED_FOR='unknown')
         self.assertEqual(resposta.status_code, 302)
 
-    @expectedFailure
     def test_logout_nao_da_erro(self):
         self.cliente.force_login(self.admin)
         resposta = self.cliente.post(reverse('autenticacao:logout'), HTTP_X_FORWARDED_FOR='unknown')
         self.assertEqual(resposta.status_code, 302)
 
-    @expectedFailure
     def test_cadastro_nao_da_erro(self):
         self.cliente.force_login(self.admin)
         dados = {'nome': 'Bob', 'email': 'b@test.com', 'senha': SENHA, 'confirmar_senha': SENHA}
@@ -647,6 +641,9 @@ class XForwardedForInvalidoTestCase(TestCase):
         self.assertEqual(resposta.status_code, 302)
 
 
+
+# Bugs conhecidos: cada teste descreve o comportamento correto e falha hoje.
+# Ao corrigir um bug, o teste vira "unexpected success": basta remover o @expectedFailure.
 @SENHA_RAPIDA
 class EmailSemDiferenciarMaiusculasTestCase(TestCase):
     def setUp(self):
