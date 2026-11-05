@@ -641,39 +641,35 @@ class XForwardedForInvalidoTestCase(TestCase):
         self.assertEqual(resposta.status_code, 302)
 
 
-
-# Bugs conhecidos: cada teste descreve o comportamento correto e falha hoje.
-# Ao corrigir um bug, o teste vira "unexpected success": basta remover o @expectedFailure.
 @SENHA_RAPIDA
 class EmailSemDiferenciarMaiusculasTestCase(TestCase):
     def setUp(self):
         self.admin = criar_admin()
         self.dados = {'nome': 'Arthur', 'senha': SENHA, 'confirmar_senha': SENHA}
 
-    @expectedFailure
     def test_cadastro_recusa_email_repetido_com_dominio_em_maiusculas(self):
-        cliente = Client(raise_request_exception=False)  # hoje a view devolve 500 (IntegrityError)
+        cliente = Client(raise_request_exception=False)
         cliente.force_login(self.admin)
         resposta = cliente.post(reverse('autenticacao:cadastro'), {**self.dados, 'email': 'a@TEST.COM'})
         self.assertEqual(resposta.status_code, 200)
         self.assertIn('email', resposta.context['form'].errors)
 
-    @expectedFailure
     def test_formulario_recusa_email_repetido_com_maiusculas_antes_do_arroba(self):
         form = SignUpForm({**self.dados, 'email': 'A@test.com'})
         self.assertIn('email', form.errors)
 
-    @expectedFailure
     def test_login_aceita_dominio_em_maiusculas(self):
         self.client.post(reverse('autenticacao:login'), {'email': 'a@TEST.COM', 'senha': SENHA})
         self.assertEqual(int(self.client.session['_auth_user_id']), self.admin.pk)
 
-    @expectedFailure
     def test_login_aceita_maiusculas_antes_do_arroba(self):
         self.client.post(reverse('autenticacao:login'), {'email': 'A@test.com', 'senha': SENHA})
         self.assertEqual(int(self.client.session['_auth_user_id']), self.admin.pk)
 
 
+
+# Bug conhecido: o teste descreve o comportamento correto e falha hoje.
+# Ao corrigir o bug, o teste vira "unexpected success": basta remover o @expectedFailure.
 @SENHA_RAPIDA
 class SenhaComEspacoTestCase(TestCase):
     @expectedFailure

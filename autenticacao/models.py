@@ -1,9 +1,13 @@
 from django.db import models
 from django.conf import settings
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
+from django.core.exceptions import ValidationError
 from core.models import LogEvento
 
 class AdminManager(BaseUserManager):
+    def get_by_natural_key(self, username):
+        return self.get(**{f'{self.model.USERNAME_FIELD}__iexact': username})
+
     def create_user(self, email, nome, password=None):
         if not email:
             raise ValueError('O email é obrigatório')
@@ -51,6 +55,17 @@ class Admin(AbstractBaseUser, PermissionsMixin):
 
     def __str__(self):
         return self.nome
+
+    def validate_unique(self, exclude=None):
+        super().validate_unique(exclude=exclude)
+        if exclude and 'email' in exclude:
+            return
+        duplicate = Admin.objects.filter(email__iexact=self.email)
+        if self.pk is not None:
+            duplicate = duplicate.exclude(pk=self.pk)
+        if duplicate.exists():
+            raise ValidationError({'email': self.unique_error_message(
+                Admin, ('email',))})
 
 
 class LogAdmin(LogEvento):
