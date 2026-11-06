@@ -122,7 +122,7 @@ class LogEmprestimo(LogEvento):
 
     class Evento(models.TextChoices):
         CRIADO = 'CRIADO', 'Criado'
-        DEVOLUCAO_SINALIZADA = 'DEVOLUCAO_SINALIZADA', 'Devolução sinalizada'                      
+        DEVOLUCAO_SINALIZADA = 'DEVOLUCAO_SINALIZADA', 'Devolução sinalizada'
         DEVOLUCAO_CONFIRMADA = 'DEVOLUCAO_CONFIRMADA', 'Devolução confirmada'
 
     event_type = models.CharField(max_length=20, choices=Evento.choices)

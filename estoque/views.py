@@ -3,9 +3,11 @@ from django.contrib.auth.decorators import login_not_required
 from django.core.exceptions import ValidationError
 from django.shortcuts import get_object_or_404, render, redirect
 from django.views.decorators.http import require_POST
+
+from core.utils import get_client_ip
 from .models import ItemCASD
-from .forms import ItemCASDForm
-from .services import EstoqueService
+from .forms import ItemCASDForm, EmprestimoForm
+from .services import EstoqueService, EmprestimoService
 
 
 @login_not_required
@@ -61,4 +63,22 @@ def item_delete(request, pk):
 
 @login_not_required
 def emprestimo_create(request, pk):
-    return redirect('estoque:item_list')
+    item = get_object_or_404(ItemCASD, pk=pk, is_active=True)
+
+    if request.method == 'POST':
+        form = EmprestimoForm(request.POST)
+        if form.is_valid():
+            try:
+                ip = get_client_ip(request)
+                EmprestimoService.create_emprestimo(item, form.cleaned_data, ip)
+            except ValidationError as e:
+                form.add_error(None, e)
+            else:
+                messages.success(request, "Empréstimo registrado.")
+                return redirect('estoque:item_list')
+
+    else:
+        form = EmprestimoForm()
+
+    context = {'form': form, 'item': item}
+    return render(request, 'estoque/emprestimo_form.html', context)
