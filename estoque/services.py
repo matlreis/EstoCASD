@@ -60,7 +60,7 @@ class EmprestimoService:
 
         limit_date = dados['limit_date']
         if limit_date < timezone.localdate():
-            raise ValidationError("Este item não está mais disponível.r")
+            raise ValidationError("A data de devolução não pode estar no passado.")
         if limit_date > timezone.localdate() + timedelta(days=PRAZO_MAX_DIAS):
             raise ValidationError(f"A data de devolução não pode passar de {PRAZO_MAX_DIAS} dias.")
         # proibir prazo de entrega no final de semana (5 = sábado, 6 = domingo)
