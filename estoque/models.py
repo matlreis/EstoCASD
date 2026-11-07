@@ -1,4 +1,5 @@
 from django.conf import settings
+from django.core.validators import MinValueValidator
 from django.db import models
 from django.utils import timezone
 
@@ -33,7 +34,8 @@ class ItemCASD(Item):
 class ItemZeladoria(Item):
     quant_uso = models.PositiveIntegerField('quantidade em uso', default=0)
     preco_unitario = models.DecimalField(
-        'preço unitário', max_digits=8, decimal_places=2, null=True, blank=True, 
+        'preço unitário', max_digits=8, decimal_places=2, null=True, blank=True,
+        validators=[MinValueValidator(0)],
     )
 
     class Meta(Item.Meta):
