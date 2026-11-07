@@ -5,9 +5,9 @@ from django.shortcuts import get_object_or_404, render, redirect
 from django.views.decorators.http import require_POST
 
 from core.utils import get_client_ip
-from .models import ItemCASD, Emprestimo
-from .forms import ItemCASDForm, EmprestimoForm, DevolucaoForm
-from .services import EstoqueService, EmprestimoService
+from .models import ItemCASD, Emprestimo, ItemZeladoria
+from .forms import ItemCASDForm, EmprestimoForm, DevolucaoForm, ItemZeladoriaForm
+from .services import EstoqueService, EmprestimoService, ZeladoriaService
 
 
 @login_not_required
@@ -123,3 +123,56 @@ def devolucao_confirmar(request, pk):
     else:
         messages.success(request, 'Devolução confirmada.')
     return redirect('estoque:emprestimo_list')
+
+def zeladoria_list(request):
+    itens = ZeladoriaService.list_items()
+    context = {'itens': itens}
+    return render(request, 'estoque/zeladoria_list.html', context)
+
+def zeladoria_create(request):
+    if request.method == 'POST':
+        form = ItemZeladoriaForm(request.POST)
+        if form.is_valid():
+            ip = get_client_ip(request)
+            ZeladoriaService.create_item(form.cleaned_data, request.user, ip)
+            messages.success(request, 'Item cadastrado.')
+            return redirect('estoque:zeladoria_list')
+
+    else:
+        form = ItemZeladoriaForm()
+
+    context = {'form': form}
+    return render(request, 'estoque/zeladoria_form.html', context)
+
+def zeladoria_update(request, pk):
+    item = get_object_or_404(ItemZeladoria, pk=pk, is_active=True)
+
+    if request.method == 'POST':
+        form = ItemZeladoriaForm(request.POST, instance=item)
+        if form.is_valid():
+            try:
+                ip = get_client_ip(request)
+                ZeladoriaService.update_item(item, form.cleaned_data, request.user, ip)
+            except ValidationError as e:
+                form.add_error(None, e)
+            else:
+                messages.success(request, 'Item atualizado.')
+                return redirect('estoque:zeladoria_list')
+
+    else:
+        form = ItemZeladoriaForm(instance=item)
+
+    context = {'form': form, 'item': item}
+    return render(request, 'estoque/zeladoria_form.html', context)
+
+@require_POST
+def zeladoria_delete(request, pk):
+    item = get_object_or_404(ItemZeladoria, pk=pk, is_active=True)
+    try:
+        ip = get_client_ip(request)
+        ZeladoriaService.delete_item(item, request.user, ip)
+    except ValidationError as e:
+        messages.error(request, e.messages[0])
+    else:
+        messages.success(request, 'Item removido.')
+    return redirect('estoque:zeladoria_list')

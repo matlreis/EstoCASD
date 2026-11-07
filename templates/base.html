@@ -14,6 +14,7 @@
         <nav class="cabecalho-usuario">
             {% if user.is_authenticated %}
                 <a href="{% url 'estoque:emprestimo_list' %}">Empréstimos</a>
+                <a href="{% url 'estoque:zeladoria_list' %}">Zeladoria</a>
                 <a href="{% url 'autenticacao:cadastro' %}">Cadastrar administrador</a>
                 <span>{{ user.nome }}</span>
                 <form method="post" action="{% url 'autenticacao:logout' %}">
