@@ -5,9 +5,10 @@ from django.core.exceptions import ValidationError
 from django.test import TestCase
 from django.urls import reverse
 
+from autenticacao.models import Admin
 from .forms import EmprestimoForm
 from .models import Emprestimo, ItemCASD, LogEmprestimo, Morador
-from .services import PRAZO_MAX_DIAS, EmprestimoService
+from .services import PRAZO_MAX_DIAS, EmprestimoService, EstoqueService
 
 # "Hoje" fixo, para os testes não dependerem do dia em que rodam. Uma quinta-feira
 # foi escolhida porque HOJE + 60 e HOJE + 61 caem em dias úteis, então os testes do
@@ -354,3 +355,362 @@ class EmprestimoCreateViewTestCase(TestCase):
     def test_erro_mantem_os_dados_digitados(self):
         resposta = self.client.post(self.url, dados_post(nome='Pedro Souza', quant=4))
         self.assertContains(resposta, 'value="Pedro Souza"')
+
+
+AT = Emprestimo.StatusEmprestimo.AT
+DS = Emprestimo.StatusEmprestimo.DS
+DE = Emprestimo.StatusEmprestimo.DE
+
+
+def criar_emprestimo(item, morador, status=AT, quant=1, limit_date=HOJE):
+    # cria direto no banco: quem chama ajusta quant_emprestada do item
+    return Emprestimo.objects.create(id_item=item, id_morador=morador, status=status,
+                                     quant=quant, limit_date=limit_date)
+
+
+def criar_admin(email='admin@test.com', nome='Alice'):
+    # sem senha: os testes usam force_login, que não precisa dela
+    return Admin.objects.create_user(email=email, nome=nome)
+
+
+def status_atual(emprestimo):
+    emprestimo.refresh_from_db()
+    return emprestimo.status
+
+
+class SinalizarDevolucaoTestCase(TestCase):
+    def setUp(self):
+        self.item = ItemCASD.objects.create(nome='Caixa de som', quant_total=5, quant_emprestada=2)
+        self.pedro = Morador.objects.create(nome='Pedro', ap='101J', email='pedro@test.com')
+        self.emprestimo = criar_emprestimo(self.item, self.pedro, quant=2)
+
+    def test_muda_o_status_para_devolucao_sinalizada(self):
+        EmprestimoService.sinalizar_devolucao(self.item, 'pedro@test.com')
+        self.assertEqual(status_atual(self.emprestimo), DS)
+
+    def test_aceita_email_com_maiusculas(self):
+        EmprestimoService.sinalizar_devolucao(self.item, 'Pedro@TEST.com')
+        self.assertEqual(status_atual(self.emprestimo), DS)
+
+    def test_nao_altera_a_quantidade_emprestada(self):
+        # o item só volta ao estoque quando o admin confirma
+        EmprestimoService.sinalizar_devolucao(self.item, 'pedro@test.com')
+        self.item.refresh_from_db()
+        self.assertEqual(self.item.quant_emprestada, 2)
+
+    def test_sinaliza_todos_os_emprestimos_ativos_do_morador_no_item(self):
+        outro = criar_emprestimo(self.item, self.pedro)
+        EmprestimoService.sinalizar_devolucao(self.item, 'pedro@test.com')
+        self.assertEqual([status_atual(self.emprestimo), status_atual(outro)], [DS, DS])
+
+    def test_nao_sinaliza_emprestimo_de_outro_morador(self):
+        ana = Morador.objects.create(nome='Ana', ap='102J', email='ana@test.com')
+        da_ana = criar_emprestimo(self.item, ana)
+        EmprestimoService.sinalizar_devolucao(self.item, 'pedro@test.com')
+        self.assertEqual(status_atual(da_ana), AT)
+
+    def test_nao_sinaliza_emprestimo_de_outro_item(self):
+        escada = ItemCASD.objects.create(nome='Escada', quant_total=1, quant_emprestada=1)
+        da_escada = criar_emprestimo(escada, self.pedro)
+        EmprestimoService.sinalizar_devolucao(self.item, 'pedro@test.com')
+        self.assertEqual(status_atual(da_escada), AT)
+
+    def test_nao_altera_emprestimo_ja_devolvido(self):
+        devolvido = criar_emprestimo(self.item, self.pedro, status=DE)
+        EmprestimoService.sinalizar_devolucao(self.item, 'pedro@test.com')
+        self.assertEqual(status_atual(devolvido), DE)
+
+    def test_recusa_email_sem_emprestimo(self):
+        with self.assertRaisesMessage(ValidationError, 'Nenhum empréstimo ativo'):
+            EmprestimoService.sinalizar_devolucao(self.item, 'ninguem@test.com')
+
+    def test_recusa_sinalizar_duas_vezes(self):
+        EmprestimoService.sinalizar_devolucao(self.item, 'pedro@test.com')
+        with self.assertRaises(ValidationError):
+            EmprestimoService.sinalizar_devolucao(self.item, 'pedro@test.com')
+
+    def test_cria_um_log_por_emprestimo_sinalizado(self):
+        criar_emprestimo(self.item, self.pedro)
+        EmprestimoService.sinalizar_devolucao(self.item, 'pedro@test.com')
+        logs = LogEmprestimo.objects.filter(event_type=LogEmprestimo.Evento.DEVOLUCAO_SINALIZADA)
+        self.assertEqual(logs.count(), 2)
+
+    def test_log_guarda_o_ip(self):
+        EmprestimoService.sinalizar_devolucao(self.item, 'pedro@test.com', ip='10.0.0.1')
+        self.assertEqual(LogEmprestimo.objects.get().ip_aparelho, '10.0.0.1')
+
+    def test_log_do_morador_nao_tem_admin(self):
+        EmprestimoService.sinalizar_devolucao(self.item, 'pedro@test.com')
+        self.assertIsNone(LogEmprestimo.objects.get().id_admin)
+
+    def test_recusa_nao_cria_log(self):
+        with self.assertRaises(ValidationError):
+            EmprestimoService.sinalizar_devolucao(self.item, 'ninguem@test.com')
+        self.assertFalse(LogEmprestimo.objects.exists())
+
+
+class ConfirmarDevolucaoTestCase(TestCase):
+    def setUp(self):
+        self.admin = criar_admin()
+        self.item = ItemCASD.objects.create(nome='Caixa de som', quant_total=5, quant_emprestada=3)
+        self.pedro = Morador.objects.create(nome='Pedro', ap='101J', email='pedro@test.com')
+        self.emprestimo = criar_emprestimo(self.item, self.pedro, status=DS, quant=2)
+
+    def test_muda_o_status_para_devolvido(self):
+        EmprestimoService.confirmar_devolucao(self.emprestimo, self.admin)
+        self.assertEqual(status_atual(self.emprestimo), DE)
+
+    def test_devolve_a_quantidade_do_emprestimo_ao_estoque(self):
+        EmprestimoService.confirmar_devolucao(self.emprestimo, self.admin)
+        self.item.refresh_from_db()
+        self.assertEqual(self.item.quant_emprestada, 1)
+
+    def test_confirma_emprestimo_ativo_sem_sinalizacao(self):
+        # o morador pode devolver o item sem sinalizar no site
+        ativo = criar_emprestimo(self.item, self.pedro, status=AT)
+        EmprestimoService.confirmar_devolucao(ativo, self.admin)
+        self.assertEqual(status_atual(ativo), DE)
+
+    def test_nao_altera_outros_emprestimos_do_item(self):
+        outro = criar_emprestimo(self.item, self.pedro, status=DS)
+        EmprestimoService.confirmar_devolucao(self.emprestimo, self.admin)
+        self.assertEqual(status_atual(outro), DS)
+
+    def test_recusa_confirmar_duas_vezes(self):
+        EmprestimoService.confirmar_devolucao(self.emprestimo, self.admin)
+        with self.assertRaisesMessage(ValidationError, 'já foi devolvido'):
+            EmprestimoService.confirmar_devolucao(self.emprestimo, self.admin)
+
+    def test_segunda_confirmacao_nao_devolve_a_quantidade_de_novo(self):
+        # simula o clique duplo: a segunda chamada recebe a instância antiga, ainda com status DS
+        copia_antiga = Emprestimo.objects.get(pk=self.emprestimo.pk)
+        EmprestimoService.confirmar_devolucao(self.emprestimo, self.admin)
+        with self.assertRaises(ValidationError):
+            EmprestimoService.confirmar_devolucao(copia_antiga, self.admin)
+        self.item.refresh_from_db()
+        self.assertEqual(self.item.quant_emprestada, 1)
+
+    def test_registra_um_log_de_confirmacao(self):
+        EmprestimoService.confirmar_devolucao(self.emprestimo, self.admin)
+        log = LogEmprestimo.objects.get()
+        self.assertEqual((log.id_emprestimo, log.event_type),
+                         (self.emprestimo, LogEmprestimo.Evento.DEVOLUCAO_CONFIRMADA))
+
+    def test_log_guarda_o_admin(self):
+        EmprestimoService.confirmar_devolucao(self.emprestimo, self.admin)
+        self.assertEqual(LogEmprestimo.objects.get().id_admin, self.admin)
+
+    def test_log_guarda_o_ip(self):
+        EmprestimoService.confirmar_devolucao(self.emprestimo, self.admin, ip='10.0.0.1')
+        self.assertEqual(LogEmprestimo.objects.get().ip_aparelho, '10.0.0.1')
+
+    def test_recusa_nao_cria_log(self):
+        devolvido = criar_emprestimo(self.item, self.pedro, status=DE)
+        with self.assertRaises(ValidationError):
+            EmprestimoService.confirmar_devolucao(devolvido, self.admin)
+        self.assertFalse(LogEmprestimo.objects.exists())
+
+
+class ListarAtivosTestCase(TestCase):
+    def setUp(self):
+        self.item = ItemCASD.objects.create(nome='Caixa de som', quant_total=5)
+        self.pedro = Morador.objects.create(nome='Pedro', ap='101J', email='pedro@test.com')
+
+    def test_inclui_ativos_e_com_devolucao_sinalizada(self):
+        ativo = criar_emprestimo(self.item, self.pedro, status=AT)
+        sinalizado = criar_emprestimo(self.item, self.pedro, status=DS)
+        self.assertCountEqual(EmprestimoService.listar_ativos(), [ativo, sinalizado])
+
+    def test_nao_inclui_devolvidos(self):
+        devolvido = criar_emprestimo(self.item, self.pedro, status=DE)
+        self.assertNotIn(devolvido, EmprestimoService.listar_ativos())
+
+    def test_prazo_mais_proximo_vem_primeiro(self):
+        depois = criar_emprestimo(self.item, self.pedro, limit_date=HOJE + timedelta(days=5))
+        antes = criar_emprestimo(self.item, self.pedro, limit_date=HOJE + timedelta(days=1))
+        self.assertEqual(list(EmprestimoService.listar_ativos()), [antes, depois])
+
+    def test_ler_item_e_morador_nao_gera_consultas_extras(self):
+        for _ in range(3):
+            criar_emprestimo(self.item, self.pedro)
+        with self.assertNumQueries(1):
+            for emprestimo in EmprestimoService.listar_ativos():
+                emprestimo.id_item.nome
+                emprestimo.id_morador.nome
+
+
+class RemoverItemComEmprestimoTestCase(TestCase):
+    def setUp(self):
+        self.admin = criar_admin()
+        self.item = ItemCASD.objects.create(nome='Caixa de som', quant_total=3, quant_emprestada=1)
+        self.pedro = Morador.objects.create(nome='Pedro', ap='101J', email='pedro@test.com')
+        self.emprestimo = criar_emprestimo(self.item, self.pedro, status=DS)
+
+    def test_bloqueado_com_devolucao_apenas_sinalizada(self):
+        with self.assertRaises(ValidationError):
+            EstoqueService.delete_item(self.item)
+
+    def test_liberado_depois_da_confirmacao(self):
+        EmprestimoService.confirmar_devolucao(self.emprestimo, self.admin)
+        EstoqueService.delete_item(self.item)
+        self.item.refresh_from_db()
+        self.assertFalse(self.item.is_active)
+
+
+class DevolucaoSinalizarViewTestCase(TestCase):
+    def setUp(self):
+        self.item = ItemCASD.objects.create(nome='Caixa de som', quant_total=3, quant_emprestada=1)
+        self.pedro = Morador.objects.create(nome='Pedro', ap='101J', email='pedro@test.com')
+        self.emprestimo = criar_emprestimo(self.item, self.pedro)
+        self.url = reverse('estoque:devolucao_sinalizar', args=[self.item.pk])
+
+    def test_anonimo_acessa_o_formulario(self):
+        resposta = self.client.get(self.url)
+        self.assertEqual(resposta.status_code, 200)
+
+    def test_usa_o_template_de_devolucao(self):
+        resposta = self.client.get(self.url)
+        self.assertTemplateUsed(resposta, 'estoque/devolucao_form.html')
+
+    def test_item_removido_retorna_404(self):
+        self.item.is_active = False
+        self.item.save()
+        resposta = self.client.get(self.url)
+        self.assertEqual(resposta.status_code, 404)
+
+    def test_lista_de_itens_tem_o_botao_devolver(self):
+        resposta = self.client.get(reverse('estoque:item_list'))
+        self.assertContains(resposta, self.url)
+
+    def test_anonimo_sinaliza_a_devolucao(self):
+        self.client.post(self.url, {'email': 'pedro@test.com'})
+        self.assertEqual(status_atual(self.emprestimo), DS)
+
+    def test_sucesso_redireciona_para_a_lista(self):
+        resposta = self.client.post(self.url, {'email': 'pedro@test.com'})
+        self.assertRedirects(resposta, reverse('estoque:item_list'))
+
+    def test_sucesso_mostra_mensagem(self):
+        resposta = self.client.post(self.url, {'email': 'pedro@test.com'}, follow=True)
+        self.assertContains(resposta, 'Devolução sinalizada.')
+
+    def test_log_guarda_o_ip_do_cliente(self):
+        self.client.post(self.url, {'email': 'pedro@test.com'}, REMOTE_ADDR='10.0.0.1')
+        self.assertEqual(LogEmprestimo.objects.get().ip_aparelho, '10.0.0.1')
+
+    def test_email_invalido_nao_sinaliza(self):
+        self.client.post(self.url, {'email': 'pedro'})
+        self.assertEqual(status_atual(self.emprestimo), AT)
+
+    def test_erro_do_service_aparece_na_pagina(self):
+        resposta = self.client.post(self.url, {'email': 'ninguem@test.com'})
+        self.assertContains(resposta, 'Nenhum empréstimo ativo deste item para este e-mail.')
+
+
+class EmprestimoListViewTestCase(TestCase):
+    def setUp(self):
+        self.url = reverse('estoque:emprestimo_list')
+        self.item = ItemCASD.objects.create(nome='Caixa de som', quant_total=3)
+        self.pedro = Morador.objects.create(nome='Pedro', ap='101J', email='pedro@test.com')
+
+    def test_anonimo_e_redirecionado_para_o_login(self):
+        resposta = self.client.get(self.url)
+        self.assertRedirects(resposta, f"{reverse('autenticacao:login')}?next={self.url}")
+
+    def test_admin_acessa_a_lista(self):
+        self.client.force_login(criar_admin())
+        resposta = self.client.get(self.url)
+        self.assertTemplateUsed(resposta, 'estoque/emprestimo_list.html')
+
+    def test_mostra_morador_com_apartamento(self):
+        criar_emprestimo(self.item, self.pedro)
+        self.client.force_login(criar_admin())
+        resposta = self.client.get(self.url)
+        self.assertContains(resposta, 'Pedro (101J)')
+
+    def test_mostra_a_data_no_formato_brasileiro(self):
+        criar_emprestimo(self.item, self.pedro, limit_date=date(2026, 11, 20))
+        self.client.force_login(criar_admin())
+        resposta = self.client.get(self.url)
+        self.assertContains(resposta, '20/11/2026')
+
+    def test_mostra_o_rotulo_do_status(self):
+        criar_emprestimo(self.item, self.pedro, status=DS)
+        self.client.force_login(criar_admin())
+        resposta = self.client.get(self.url)
+        self.assertContains(resposta, 'Devolução sinalizada')
+
+    def test_tem_o_botao_de_confirmar(self):
+        emprestimo = criar_emprestimo(self.item, self.pedro)
+        self.client.force_login(criar_admin())
+        resposta = self.client.get(self.url)
+        self.assertContains(resposta, reverse('estoque:devolucao_confirmar', args=[emprestimo.pk]))
+
+    def test_sem_emprestimos_mostra_aviso(self):
+        criar_emprestimo(self.item, self.pedro, status=DE)
+        self.client.force_login(criar_admin())
+        resposta = self.client.get(self.url)
+        self.assertContains(resposta, 'Nenhum empréstimo ativo.')
+
+    def test_cabecalho_tem_link_para_o_admin(self):
+        self.client.force_login(criar_admin())
+        resposta = self.client.get(reverse('estoque:item_list'))
+        self.assertContains(resposta, f'href="{self.url}"')
+
+    def test_cabecalho_nao_tem_link_para_o_anonimo(self):
+        resposta = self.client.get(reverse('estoque:item_list'))
+        self.assertNotContains(resposta, f'href="{self.url}"')
+
+
+class DevolucaoConfirmarViewTestCase(TestCase):
+    def setUp(self):
+        self.admin = criar_admin()
+        self.item = ItemCASD.objects.create(nome='Caixa de som', quant_total=3, quant_emprestada=1)
+        self.pedro = Morador.objects.create(nome='Pedro', ap='101J', email='pedro@test.com')
+        self.emprestimo = criar_emprestimo(self.item, self.pedro, status=DS)
+        self.url = reverse('estoque:devolucao_confirmar', args=[self.emprestimo.pk])
+
+    def test_anonimo_e_redirecionado_para_o_login(self):
+        resposta = self.client.post(self.url)
+        self.assertRedirects(resposta, f"{reverse('autenticacao:login')}?next={self.url}",
+                             fetch_redirect_response=False)
+
+    def test_anonimo_nao_confirma(self):
+        self.client.post(self.url)
+        self.assertEqual(status_atual(self.emprestimo), DS)
+
+    def test_get_nao_e_permitido(self):
+        self.client.force_login(self.admin)
+        resposta = self.client.get(self.url)
+        self.assertEqual(resposta.status_code, 405)
+
+    def test_emprestimo_inexistente_retorna_404(self):
+        self.client.force_login(self.admin)
+        resposta = self.client.post(reverse('estoque:devolucao_confirmar', args=[self.emprestimo.pk + 1]))
+        self.assertEqual(resposta.status_code, 404)
+
+    def test_admin_confirma_a_devolucao(self):
+        self.client.force_login(self.admin)
+        self.client.post(self.url)
+        self.assertEqual(status_atual(self.emprestimo), DE)
+
+    def test_log_guarda_o_admin_logado(self):
+        self.client.force_login(self.admin)
+        self.client.post(self.url)
+        self.assertEqual(LogEmprestimo.objects.get().id_admin, self.admin)
+
+    def test_sucesso_volta_para_a_lista_de_emprestimos(self):
+        self.client.force_login(self.admin)
+        resposta = self.client.post(self.url)
+        self.assertRedirects(resposta, reverse('estoque:emprestimo_list'))
+
+    def test_sucesso_mostra_mensagem(self):
+        self.client.force_login(self.admin)
+        resposta = self.client.post(self.url, follow=True)
+        self.assertContains(resposta, 'Devolução confirmada.')
+
+    def test_confirmar_de_novo_mostra_erro(self):
+        self.client.force_login(self.admin)
+        self.client.post(self.url)
+        resposta = self.client.post(self.url, follow=True)
+        self.assertContains(resposta, 'Este empréstimo já foi devolvido.')
