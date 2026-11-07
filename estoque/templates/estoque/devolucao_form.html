@@ -1,0 +1,17 @@
+{% extends 'base.html' %}
+
+{% block title %}Devolver {{ item.nome }} | EstoCASD{% endblock %}
+
+{% block content %}
+    <h1>Devolver: {{ item.nome }}</h1>
+
+    <form method="post" class="formulario">
+        {% csrf_token %}
+        {{ form.as_div }}
+
+        <div class="acoes">
+            <button type="submit" class="btn btn-primario">Sinalizar devolução</button>
+            <a class="btn" href="{% url 'estoque:item_list' %}">Cancelar</a>
+        </div>
+    </form>
+{% endblock %}

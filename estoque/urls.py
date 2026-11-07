@@ -9,4 +9,7 @@ urlpatterns = [
     path('itens/<int:pk>/editar/', views.item_update, name='item_update'),
     path('itens/<int:pk>/remover/', views.item_delete, name='item_delete'),
     path('itens/<int:pk>/emprestar/', views.emprestimo_create, name='emprestimo_create'),
+    path('itens/<int:pk>/devolver/', views.devolucao_sinalizar, name='devolucao_sinalizar'),
+    path('emprestimos/', views.emprestimo_list, name='emprestimo_list'),
+    path('emprestimos/<int:pk>/confirmar/', views.devolucao_confirmar, name='devolucao_confirmar'),
 ]

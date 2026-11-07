@@ -117,3 +117,12 @@ class Emprestimo(models.Model):
 
 class LogEmprestimo(LogEvento):
     id_emprestimo = models.ForeignKey(Emprestimo, on_delete=models.CASCADE, db_column='id_emprestimo')
+    id_admin = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT,
+                        db_column='id_admin', null=True, blank=True)
+
+    class Evento(models.TextChoices):
+        CRIADO = 'CRIADO', 'Criado'
+        DEVOLUCAO_SINALIZADA = 'DEVOLUCAO_SINALIZADA', 'Devolução sinalizada'
+        DEVOLUCAO_CONFIRMADA = 'DEVOLUCAO_CONFIRMADA', 'Devolução confirmada'
+
+    event_type = models.CharField(max_length=20, choices=Evento.choices)
