@@ -1,14 +1,16 @@
 from datetime import date, timedelta
+from decimal import Decimal
 from unittest import mock
 
 from django.core.exceptions import ValidationError
 from django.test import TestCase
 from django.urls import reverse
+from django.utils import timezone
 
 from autenticacao.models import Admin
 from .forms import EmprestimoForm
-from .models import Emprestimo, ItemCASD, LogEmprestimo, Morador
-from .services import PRAZO_MAX_DIAS, EmprestimoService, EstoqueService
+from .models import Emprestimo, ItemCASD, ItemZeladoria, LogEmprestimo, LogItemZeladoria, Morador
+from .services import PRAZO_MAX_DIAS, EmprestimoService, EstoqueService, ZeladoriaService
 
 # "Hoje" fixo, para os testes não dependerem do dia em que rodam. Uma quinta-feira
 # foi escolhida porque HOJE + 60 e HOJE + 61 caem em dias úteis, então os testes do
@@ -714,3 +716,363 @@ class DevolucaoConfirmarViewTestCase(TestCase):
         self.client.post(self.url)
         resposta = self.client.post(self.url, follow=True)
         self.assertContains(resposta, 'Este empréstimo já foi devolvido.')
+
+
+EVENTO = LogItemZeladoria.Evento
+
+
+def dados_zeladoria(**alteracoes):
+    dados = {'nome': 'Extensão', 'quant_total': 5, 'preco_unitario': None}
+    dados.update(alteracoes)
+    return dados
+
+
+def criar_item_zeladoria(nome='Extensão', quant_total=5, quant_uso=0, preco_unitario=None):
+    # cria direto no banco, sem passar pelo service: não gera log
+    return ItemZeladoria.objects.create(nome=nome, quant_total=quant_total,
+                                        quant_uso=quant_uso, preco_unitario=preco_unitario)
+
+
+class ItemZeladoriaModelTestCase(TestCase):
+    def test_disponivel_sem_uso_e_o_total(self):
+        item = ItemZeladoria(nome='Extensão', quant_total=5)
+        self.assertEqual(item.quant_disponivel, 5)
+
+    def test_disponivel_desconta_o_uso(self):
+        item = ItemZeladoria(nome='Extensão', quant_total=5, quant_uso=2)
+        self.assertEqual(item.quant_disponivel, 3)
+
+    def test_disponivel_com_tudo_em_uso_e_zero(self):
+        item = ItemZeladoria(nome='Extensão', quant_total=5, quant_uso=5)
+        self.assertEqual(item.quant_disponivel, 0)
+
+    def test_sem_uso_nao_esta_em_uso(self):
+        item = ItemZeladoria(nome='Extensão', quant_total=5)
+        self.assertFalse(item.em_uso)
+
+    def test_uso_parcial_esta_em_uso(self):
+        item = ItemZeladoria(nome='Extensão', quant_total=5, quant_uso=1)
+        self.assertTrue(item.em_uso)
+
+    def test_uso_total_esta_em_uso(self):
+        item = ItemZeladoria(nome='Vassoura', quant_total=1, quant_uso=1)
+        self.assertTrue(item.em_uso)
+
+
+class ListItemsZeladoriaTestCase(TestCase):
+    def test_nao_inclui_itens_removidos(self):
+        removido = ItemZeladoria.objects.create(nome='Rodo', is_active=False)
+        self.assertNotIn(removido, ZeladoriaService.list_items())
+
+    def test_ordena_por_nome(self):
+        criar_item_zeladoria(nome='Vassoura')
+        criar_item_zeladoria(nome='Balde')
+        nomes = [item.nome for item in ZeladoriaService.list_items()]
+        self.assertEqual(nomes, ['Balde', 'Vassoura'])
+
+    def test_nao_inclui_itens_do_casd(self):
+        criar_item_zeladoria(nome='Vassoura')
+        ItemCASD.objects.create(nome='Caixa de som')
+        nomes = [item.nome for item in ZeladoriaService.list_items()]
+        self.assertEqual(nomes, ['Vassoura'])
+
+
+class CreateItemZeladoriaTestCase(TestCase):
+    def setUp(self):
+        self.admin = criar_admin()
+
+    def test_retorna_o_item_criado(self):
+        item = ZeladoriaService.create_item(dados_zeladoria(), self.admin)
+        self.assertEqual(ItemZeladoria.objects.get(), item)
+
+    def test_grava_os_dados(self):
+        item = ZeladoriaService.create_item(dados_zeladoria(preco_unitario=Decimal('2.50')), self.admin)
+        item.refresh_from_db()
+        self.assertEqual((item.nome, item.quant_total, item.preco_unitario),
+                         ('Extensão', 5, Decimal('2.50')))
+
+    def test_item_comeca_sem_uso(self):
+        item = ZeladoriaService.create_item(dados_zeladoria(), self.admin)
+        self.assertEqual(item.quant_uso, 0)
+
+    def test_registra_um_log_criado(self):
+        item = ZeladoriaService.create_item(dados_zeladoria(), self.admin)
+        log = LogItemZeladoria.objects.get()
+        self.assertEqual((log.id_item, log.event_type), (item, EVENTO.CRIADO))
+
+    def test_log_guarda_a_quantidade_inicial_como_nova(self):
+        ZeladoriaService.create_item(dados_zeladoria(quant_total=7), self.admin)
+        log = LogItemZeladoria.objects.get()
+        self.assertEqual((log.quant_anterior, log.quant_nova), (None, 7))
+
+    def test_log_guarda_o_admin(self):
+        ZeladoriaService.create_item(dados_zeladoria(), self.admin)
+        self.assertEqual(LogItemZeladoria.objects.get().id_admin, self.admin)
+
+    def test_log_guarda_o_ip(self):
+        ZeladoriaService.create_item(dados_zeladoria(), self.admin, ip='10.0.0.1')
+        self.assertEqual(LogItemZeladoria.objects.get().ip_aparelho, '10.0.0.1')
+
+    def test_log_sem_ip_fica_nulo(self):
+        ZeladoriaService.create_item(dados_zeladoria(), self.admin)
+        self.assertIsNone(LogItemZeladoria.objects.get().ip_aparelho)
+
+
+class UpdateItemZeladoriaTestCase(TestCase):
+    def setUp(self):
+        self.admin = criar_admin()
+        self.item = criar_item_zeladoria(quant_total=5, quant_uso=2, preco_unitario=Decimal('12.50'))
+
+    def atualizar(self, ip=None, **alteracoes):
+        dados = dados_zeladoria(**{'preco_unitario': Decimal('12.50'), **alteracoes})
+        return ZeladoriaService.update_item(self.item, dados, self.admin, ip)
+
+    def test_grava_o_nome(self):
+        self.atualizar(nome='Extensão 3m')
+        self.item.refresh_from_db()
+        self.assertEqual(self.item.nome, 'Extensão 3m')
+
+    def test_grava_o_preco(self):
+        self.atualizar(preco_unitario=Decimal('15.00'))
+        self.item.refresh_from_db()
+        self.assertEqual(self.item.preco_unitario, Decimal('15.00'))
+
+    def test_permite_remover_o_preco(self):
+        self.atualizar(preco_unitario=None)
+        self.item.refresh_from_db()
+        self.assertIsNone(self.item.preco_unitario)
+
+    def test_nao_altera_a_quantidade_em_uso(self):
+        self.atualizar(quant_total=8)
+        self.item.refresh_from_db()
+        self.assertEqual(self.item.quant_uso, 2)
+
+    def test_reduzir_o_total_registra_log_com_anterior_e_nova(self):
+        self.atualizar(quant_total=3)
+        log = LogItemZeladoria.objects.get()
+        self.assertEqual((log.event_type, log.quant_anterior, log.quant_nova),
+                         (EVENTO.QUANT_ALTERADA, 5, 3))
+
+    def test_aumentar_o_total_registra_log(self):
+        self.atualizar(quant_total=8)
+        log = LogItemZeladoria.objects.get()
+        self.assertEqual((log.quant_anterior, log.quant_nova), (5, 8))
+
+    def test_log_guarda_admin_e_ip(self):
+        self.atualizar(quant_total=8, ip='10.0.0.1')
+        log = LogItemZeladoria.objects.get()
+        self.assertEqual((log.id_admin, log.ip_aparelho), (self.admin, '10.0.0.1'))
+
+    def test_alterar_so_nome_e_preco_nao_gera_log(self):
+        self.atualizar(nome='Extensão 3m', preco_unitario=Decimal('15.00'))
+        self.assertFalse(LogItemZeladoria.objects.exists())
+
+    def test_aceita_total_igual_a_quantidade_em_uso(self):
+        self.atualizar(quant_total=2)
+        self.item.refresh_from_db()
+        self.assertEqual(self.item.quant_total, 2)
+
+    def test_recusa_total_menor_que_a_quantidade_em_uso(self):
+        with self.assertRaisesMessage(ValidationError, 'quantidade em uso (2)'):
+            self.atualizar(quant_total=1)
+
+    def test_recusa_nao_altera_o_item(self):
+        with self.assertRaises(ValidationError):
+            self.atualizar(nome='Outro nome', quant_total=1)
+        self.item.refresh_from_db()
+        self.assertEqual((self.item.nome, self.item.quant_total), ('Extensão', 5))
+
+    def test_recusa_nao_cria_log(self):
+        with self.assertRaises(ValidationError):
+            self.atualizar(quant_total=1)
+        self.assertFalse(LogItemZeladoria.objects.exists())
+
+    def test_usa_a_quantidade_em_uso_do_banco_e_nao_a_da_instancia(self):
+        # outro admin marcou mais unidades em uso depois que a página foi aberta
+        ItemZeladoria.objects.filter(pk=self.item.pk).update(quant_uso=4)
+        with self.assertRaises(ValidationError):
+            self.atualizar(quant_total=3)
+
+
+class DefinirQuantUsoTestCase(TestCase):
+    def setUp(self):
+        self.admin = criar_admin()
+        self.item = criar_item_zeladoria(quant_total=3)
+
+    def definir(self, quant_uso, ip=None):
+        return ZeladoriaService.definir_quant_uso(self.item, quant_uso, self.admin, ip)
+
+    def uso_atual(self):
+        self.item.refresh_from_db()
+        return self.item.quant_uso
+
+    def test_grava_a_quantidade_em_uso(self):
+        self.definir(2)
+        self.assertEqual(self.uso_atual(), 2)
+
+    def test_retorna_o_item_atualizado(self):
+        item = self.definir(2)
+        self.assertEqual(item.quant_uso, 2)
+
+    def test_registra_log_com_anterior_e_nova(self):
+        self.definir(2)
+        log = LogItemZeladoria.objects.get()
+        self.assertEqual((log.event_type, log.quant_anterior, log.quant_nova),
+                         (EVENTO.USO_ALTERADO, 0, 2))
+
+    def test_log_guarda_admin_e_ip(self):
+        self.definir(2, ip='10.0.0.1')
+        log = LogItemZeladoria.objects.get()
+        self.assertEqual((log.id_admin, log.ip_aparelho), (self.admin, '10.0.0.1'))
+
+    def test_aceita_todas_as_unidades_em_uso(self):
+        self.definir(3)
+        self.assertEqual(self.uso_atual(), 3)
+
+    def test_aceita_zerar_o_uso(self):
+        self.definir(2)
+        self.definir(0)
+        self.assertEqual(self.uso_atual(), 0)
+
+    def test_zerar_o_uso_registra_log(self):
+        self.definir(2)
+        self.definir(0)
+        log = LogItemZeladoria.objects.latest('pk')
+        self.assertEqual((log.quant_anterior, log.quant_nova), (2, 0))
+
+    def test_recusa_mais_que_o_total(self):
+        with self.assertRaisesMessage(ValidationError, 'entre 0 e 3'):
+            self.definir(4)
+
+    def test_recusa_valor_negativo(self):
+        with self.assertRaises(ValidationError):
+            self.definir(-1)
+
+    def test_recusa_nao_altera_o_uso(self):
+        with self.assertRaises(ValidationError):
+            self.definir(4)
+        self.assertEqual(self.uso_atual(), 0)
+
+    def test_recusa_nao_cria_log(self):
+        with self.assertRaises(ValidationError):
+            self.definir(4)
+        self.assertFalse(LogItemZeladoria.objects.exists())
+
+    def test_mesmo_valor_nao_gera_log(self):
+        self.definir(2)
+        self.definir(2)
+        self.assertEqual(LogItemZeladoria.objects.count(), 1)
+
+    def test_valor_atual_sem_alteracao_nao_gera_log(self):
+        self.definir(0)
+        self.assertFalse(LogItemZeladoria.objects.exists())
+
+    def test_clique_repetido_de_outro_admin_nao_desfaz_o_primeiro(self):
+        # dois admins abriram a lista com o item livre e clicaram "Marcar em uso"
+        vassoura = criar_item_zeladoria(nome='Vassoura', quant_total=1)
+        copia_antiga = ItemZeladoria.objects.get(pk=vassoura.pk)
+        ZeladoriaService.definir_quant_uso(vassoura, 1, self.admin)
+        ZeladoriaService.definir_quant_uso(copia_antiga, 1, criar_admin(email='b@test.com'))
+        # o segundo clique encontra o item já em uso no banco e não registra nada
+        self.assertEqual(LogItemZeladoria.objects.filter(id_item=vassoura).count(), 1)
+
+    def test_usa_o_total_do_banco_e_nao_o_da_instancia(self):
+        # o total foi reduzido depois que a página foi aberta
+        ItemZeladoria.objects.filter(pk=self.item.pk).update(quant_total=1)
+        with self.assertRaises(ValidationError):
+            self.definir(2)
+
+
+class DeleteItemZeladoriaTestCase(TestCase):
+    def setUp(self):
+        self.admin = criar_admin()
+        self.item = criar_item_zeladoria(quant_total=3)
+
+    def test_faz_soft_delete(self):
+        ZeladoriaService.delete_item(self.item, self.admin)
+        self.item.refresh_from_db()
+        self.assertFalse(self.item.is_active)
+
+    def test_item_sai_da_lista(self):
+        ZeladoriaService.delete_item(self.item, self.admin)
+        self.assertNotIn(self.item, ZeladoriaService.list_items())
+
+    def test_registra_log_removido_sem_quantidades(self):
+        ZeladoriaService.delete_item(self.item, self.admin)
+        log = LogItemZeladoria.objects.get()
+        self.assertEqual((log.event_type, log.quant_anterior, log.quant_nova),
+                         (EVENTO.REMOVIDO, None, None))
+
+    def test_log_guarda_admin_e_ip(self):
+        ZeladoriaService.delete_item(self.item, self.admin, ip='10.0.0.1')
+        log = LogItemZeladoria.objects.get()
+        self.assertEqual((log.id_admin, log.ip_aparelho), (self.admin, '10.0.0.1'))
+
+    def test_recusa_item_em_uso(self):
+        ZeladoriaService.definir_quant_uso(self.item, 1, self.admin)
+        with self.assertRaisesMessage(ValidationError, 'em uso'):
+            ZeladoriaService.delete_item(self.item, self.admin)
+
+    def test_recusa_mantem_o_item_ativo(self):
+        ItemZeladoria.objects.filter(pk=self.item.pk).update(quant_uso=1)
+        with self.assertRaises(ValidationError):
+            ZeladoriaService.delete_item(self.item, self.admin)
+        self.item.refresh_from_db()
+        self.assertTrue(self.item.is_active)
+
+    def test_recusa_nao_cria_log(self):
+        ItemZeladoria.objects.filter(pk=self.item.pk).update(quant_uso=1)
+        with self.assertRaises(ValidationError):
+            ZeladoriaService.delete_item(self.item, self.admin)
+        self.assertFalse(LogItemZeladoria.objects.exists())
+
+    def test_liberado_depois_de_zerar_o_uso(self):
+        ZeladoriaService.definir_quant_uso(self.item, 2, self.admin)
+        ZeladoriaService.definir_quant_uso(self.item, 0, self.admin)
+        ZeladoriaService.delete_item(self.item, self.admin)
+        self.item.refresh_from_db()
+        self.assertFalse(self.item.is_active)
+
+    def test_usa_o_uso_do_banco_e_nao_o_da_instancia(self):
+        # a instância diz quant_uso=0, mas outro admin marcou uma unidade em uso
+        ItemZeladoria.objects.filter(pk=self.item.pk).update(quant_uso=1)
+        with self.assertRaises(ValidationError):
+            ZeladoriaService.delete_item(self.item, self.admin)
+
+
+class HistoricoZeladoriaTestCase(TestCase):
+    def setUp(self):
+        self.admin = criar_admin()
+        self.item = ZeladoriaService.create_item(dados_zeladoria(quant_total=5), self.admin)
+
+    def eventos(self):
+        return [log.event_type for log in ZeladoriaService.historico(self.item)]
+
+    def test_item_sem_logs_tem_historico_vazio(self):
+        sem_logs = criar_item_zeladoria(nome='Balde')
+        self.assertFalse(ZeladoriaService.historico(sem_logs).exists())
+
+    def test_mais_recente_vem_primeiro(self):
+        ZeladoriaService.update_item(self.item, dados_zeladoria(quant_total=4), self.admin)
+        ZeladoriaService.definir_quant_uso(self.item, 1, self.admin)
+        self.assertEqual(self.eventos(), [EVENTO.USO_ALTERADO, EVENTO.QUANT_ALTERADA, EVENTO.CRIADO])
+
+    def test_inclui_a_remocao(self):
+        ZeladoriaService.delete_item(self.item, self.admin)
+        self.assertEqual(self.eventos()[0], EVENTO.REMOVIDO)
+
+    def test_nao_inclui_logs_de_outro_item(self):
+        outro = ZeladoriaService.create_item(dados_zeladoria(nome='Balde'), self.admin)
+        self.assertNotIn(outro, [log.id_item for log in ZeladoriaService.historico(self.item)])
+
+    def test_mesmo_horario_desempata_pela_ordem_de_criacao(self):
+        ZeladoriaService.definir_quant_uso(self.item, 1, self.admin)
+        LogItemZeladoria.objects.update(event_date=timezone.now())
+        self.assertEqual(self.eventos(), [EVENTO.USO_ALTERADO, EVENTO.CRIADO])
+
+    def test_ler_o_admin_nao_gera_consultas_extras(self):
+        for quant in (1, 2, 3):
+            ZeladoriaService.definir_quant_uso(self.item, quant, self.admin)
+        with self.assertNumQueries(1):
+            for log in ZeladoriaService.historico(self.item):
+                log.id_admin.nome

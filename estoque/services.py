@@ -210,5 +210,5 @@ class ZeladoriaService:
         return (
             item.logitemzeladoria_set
             .select_related('id_admin')
-            .order_by('-event_date', '-pk')  
+            .order_by('-event_date', '-pk')
         )
