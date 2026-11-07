@@ -6,7 +6,7 @@ from django.views.decorators.http import require_POST
 
 from core.utils import get_client_ip
 from .models import ItemCASD
-from .forms import ItemCASDForm, EmprestimoForm
+from .forms import ItemCASDForm, EmprestimoForm, DevolucaoForm
 from .services import EstoqueService, EmprestimoService
 
 
@@ -82,3 +82,26 @@ def emprestimo_create(request, pk):
 
     context = {'form': form, 'item': item}
     return render(request, 'estoque/emprestimo_form.html', context)
+
+@login_not_required
+def devolucao_sinalizar(request, pk):
+    item = get_object_or_404(ItemCASD, pk=pk, is_active=True)
+
+    if request.method == 'POST':
+        form = DevolucaoForm(request.POST)
+        if form.is_valid():
+            try:
+                email = form.cleaned_data['email']
+                ip = get_client_ip(request)
+                EmprestimoService.sinalizar_devolucao(item, email, ip)
+            except ValidationError as e:
+                form.add_error(None, e)
+            else:
+                messages.success(request, "Devolução sinalizada.")
+                return redirect('estoque:item_list')
+
+    else:
+        form = DevolucaoForm()
+
+    context = {'form': form, 'item': item}
+    return render(request, 'estoque/devolucao_form.html', context)

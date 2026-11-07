@@ -30,3 +30,6 @@ class EmprestimoForm(forms.Form):
         label='Devolução prevista',
         widget=forms.DateInput(attrs={'type': 'date'}, format='%Y-%m-%d'),
     )
+
+class DevolucaoForm(forms.Form):
+    email = forms.EmailField()

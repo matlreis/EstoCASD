@@ -66,7 +66,7 @@ class EmprestimoService:
         # proibir prazo de entrega no final de semana (5 = sábado, 6 = domingo)
         if limit_date.weekday() >= 5:
             raise ValidationError("A data de devolução não pode cair no fim de semana.")
-        
+
         morador, _ = Morador.objects.update_or_create(
             email=dados['email'].lower(),
             defaults={'nome': dados['nome'], 'ap': dados['ap']},
@@ -83,3 +83,22 @@ class EmprestimoService:
         )
 
         return emprestimo
+
+    @staticmethod
+    @transaction.atomic
+    def sinalizar_devolucao(item, email, ip=None):
+        emprestimos = list(Emprestimo.objects.select_for_update().filter(
+            id_item=item,
+            id_morador__email=email.lower(),
+            status=Emprestimo.StatusEmprestimo.AT,
+        ))
+        if not emprestimos:
+            raise ValidationError("Nenhum empréstimo ativo deste item para este e-mail.")
+
+        for emprestimo in emprestimos:
+            emprestimo.status = Emprestimo.StatusEmprestimo.DS
+            emprestimo.save(update_fields=['status'])
+            LogEmprestimo.objects.create(
+                id_emprestimo=emprestimo, ip_aparelho=ip,
+                event_type=LogEmprestimo.Evento.DEVOLUCAO_SINALIZADA,
+            )
