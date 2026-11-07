@@ -5,7 +5,7 @@ from django.shortcuts import get_object_or_404, render, redirect
 from django.views.decorators.http import require_POST
 
 from core.utils import get_client_ip
-from .models import ItemCASD
+from .models import ItemCASD, Emprestimo
 from .forms import ItemCASDForm, EmprestimoForm, DevolucaoForm
 from .services import EstoqueService, EmprestimoService
 
@@ -105,3 +105,21 @@ def devolucao_sinalizar(request, pk):
 
     context = {'form': form, 'item': item}
     return render(request, 'estoque/devolucao_form.html', context)
+
+def emprestimo_list(request):
+    emprestimos = EmprestimoService.listar_ativos()
+    context = {'emprestimos': emprestimos}
+    return render(request, 'estoque/emprestimo_list.html', context)
+
+@require_POST
+def devolucao_confirmar(request, pk):
+    emprestimo = get_object_or_404(Emprestimo, pk=pk)
+    try:
+        ip = get_client_ip(request)
+        # o LoginRequiredMiddleware garante que há um admin logado
+        EmprestimoService.confirmar_devolucao(emprestimo, request.user, ip)
+    except ValidationError as e:
+        messages.error(request, e.messages[0])
+    else:
+        messages.success(request, 'Devolução confirmada.')
+    return redirect('estoque:emprestimo_list')

@@ -102,3 +102,29 @@ class EmprestimoService:
                 id_emprestimo=emprestimo, ip_aparelho=ip,
                 event_type=LogEmprestimo.Evento.DEVOLUCAO_SINALIZADA,
             )
+
+    @staticmethod
+    @transaction.atomic
+    def confirmar_devolucao(emprestimo, admin, ip=None):
+        emprestimo = Emprestimo.objects.select_for_update().get(pk=emprestimo.pk)
+        if emprestimo.status == Emprestimo.StatusEmprestimo.DE:
+            raise ValidationError('Este empréstimo já foi devolvido.')
+
+        item = ItemCASD.objects.select_for_update().get(pk=emprestimo.id_item_id)
+        item.quant_emprestada -= emprestimo.quant
+        item.save(update_fields=['quant_emprestada'])
+
+        emprestimo.status = Emprestimo.StatusEmprestimo.DE
+        emprestimo.save(update_fields=['status'])
+        LogEmprestimo.objects.create(
+            id_emprestimo=emprestimo, id_admin=admin, ip_aparelho=ip,
+            event_type=LogEmprestimo.Evento.DEVOLUCAO_CONFIRMADA,
+        )
+
+    @staticmethod
+    def listar_ativos():
+        return (
+            Emprestimo.objects.ativos()
+            .select_related('id_item', 'id_morador')
+            .order_by('limit_date')
+        )
