@@ -34,25 +34,25 @@ class CreateEmprestimoTestCase(TestCase):
         self.item = ItemCASD.objects.create(nome='Caixa de som', quant_total=3)
 
     def test_retorna_o_emprestimo_criado(self):
-        emprestimo = EmprestimoService.create_emprestimo(self.item, dados_emprestimo(quant=2))
+        emprestimo = EmprestimoService.criar_emprestimo(self.item, dados_emprestimo(quant=2))
         self.assertEqual(Emprestimo.objects.get(), emprestimo)
 
     def test_emprestimo_guarda_quantidade_e_data(self):
-        emprestimo = EmprestimoService.create_emprestimo(self.item, dados_emprestimo(quant=2))
+        emprestimo = EmprestimoService.criar_emprestimo(self.item, dados_emprestimo(quant=2))
         self.assertEqual((emprestimo.quant, emprestimo.limit_date), (2, HOJE + timedelta(days=1)))
 
     def test_emprestimo_comeca_ativo(self):
-        emprestimo = EmprestimoService.create_emprestimo(self.item, dados_emprestimo())
+        emprestimo = EmprestimoService.criar_emprestimo(self.item, dados_emprestimo())
         self.assertEqual(emprestimo.status, Emprestimo.StatusEmprestimo.AT)
 
     def test_aumenta_a_quantidade_emprestada(self):
-        EmprestimoService.create_emprestimo(self.item, dados_emprestimo(quant=2))
+        EmprestimoService.criar_emprestimo(self.item, dados_emprestimo(quant=2))
         self.item.refresh_from_db()
         self.assertEqual(self.item.quant_emprestada, 2)
 
     def test_emprestimos_seguidos_acumulam_a_quantidade_emprestada(self):
-        EmprestimoService.create_emprestimo(self.item, dados_emprestimo(quant=1))
-        EmprestimoService.create_emprestimo(self.item, dados_emprestimo(quant=2))
+        EmprestimoService.criar_emprestimo(self.item, dados_emprestimo(quant=1))
+        EmprestimoService.criar_emprestimo(self.item, dados_emprestimo(quant=2))
         self.item.refresh_from_db()
         self.assertEqual(self.item.quant_emprestada, 3)
 
@@ -63,34 +63,34 @@ class QuantidadeEmprestimoTestCase(TestCase):
         self.item = ItemCASD.objects.create(nome='Caixa de som', quant_total=3, quant_emprestada=1)
 
     def test_aceita_exatamente_o_disponivel(self):
-        EmprestimoService.create_emprestimo(self.item, dados_emprestimo(quant=2))
+        EmprestimoService.criar_emprestimo(self.item, dados_emprestimo(quant=2))
         self.item.refresh_from_db()
         self.assertEqual(self.item.quant_disponivel, 0)
 
     def test_recusa_mais_que_o_disponivel(self):
         with self.assertRaisesMessage(ValidationError, 'Disponível: 2'):
-            EmprestimoService.create_emprestimo(self.item, dados_emprestimo(quant=3))
+            EmprestimoService.criar_emprestimo(self.item, dados_emprestimo(quant=3))
 
     def test_recusa_quantidade_zero(self):
         with self.assertRaises(ValidationError):
-            EmprestimoService.create_emprestimo(self.item, dados_emprestimo(quant=0))
+            EmprestimoService.criar_emprestimo(self.item, dados_emprestimo(quant=0))
 
     def test_recusa_item_sem_unidades_disponiveis(self):
         esgotado = ItemCASD.objects.create(nome='Extensão', quant_total=1, quant_emprestada=1)
         with self.assertRaises(ValidationError):
-            EmprestimoService.create_emprestimo(esgotado, dados_emprestimo(quant=1))
+            EmprestimoService.criar_emprestimo(esgotado, dados_emprestimo(quant=1))
 
     def test_usa_a_quantidade_do_banco_e_nao_a_da_instancia_recebida(self):
         # simula outro empréstimo feito depois que a view leu o item
         ItemCASD.objects.filter(pk=self.item.pk).update(quant_emprestada=3)
         with self.assertRaises(ValidationError):
-            EmprestimoService.create_emprestimo(self.item, dados_emprestimo(quant=1))
+            EmprestimoService.criar_emprestimo(self.item, dados_emprestimo(quant=1))
 
     def test_recusa_item_removido(self):
         # o item foi removido depois que a view o leu: a instância ainda diz is_active=True
         ItemCASD.objects.filter(pk=self.item.pk).update(is_active=False)
         with self.assertRaisesMessage(ValidationError, 'não está mais disponível'):
-            EmprestimoService.create_emprestimo(self.item, dados_emprestimo())
+            EmprestimoService.criar_emprestimo(self.item, dados_emprestimo())
 
 
 @FIXAR_HOJE
@@ -100,7 +100,7 @@ class DataDevolucaoTestCase(TestCase):
 
     def criar_com_data(self, dias_a_partir_de_hoje):
         limit_date = HOJE + timedelta(days=dias_a_partir_de_hoje)
-        return EmprestimoService.create_emprestimo(self.item, dados_emprestimo(limit_date=limit_date))
+        return EmprestimoService.criar_emprestimo(self.item, dados_emprestimo(limit_date=limit_date))
 
     def test_aceita_devolucao_hoje(self):
         emprestimo = self.criar_com_data(0)
@@ -142,7 +142,7 @@ class EmprestimoRecusadoTestCase(TestCase):
     def setUp(self):
         self.item = ItemCASD.objects.create(nome='Caixa de som', quant_total=1)
         with self.assertRaises(ValidationError):
-            EmprestimoService.create_emprestimo(self.item, dados_emprestimo(quant=2))
+            EmprestimoService.criar_emprestimo(self.item, dados_emprestimo(quant=2))
 
     def test_nao_altera_a_quantidade_emprestada(self):
         self.item.refresh_from_db()
@@ -164,26 +164,26 @@ class MoradorEmprestimoTestCase(TestCase):
         self.item = ItemCASD.objects.create(nome='Caixa de som', quant_total=3)
 
     def test_cria_o_morador_novo(self):
-        emprestimo = EmprestimoService.create_emprestimo(self.item, dados_emprestimo())
+        emprestimo = EmprestimoService.criar_emprestimo(self.item, dados_emprestimo())
         self.assertEqual(emprestimo.id_morador, Morador.objects.get(email='pedro@test.com'))
 
     def test_guarda_o_email_em_minusculas(self):
-        EmprestimoService.create_emprestimo(self.item, dados_emprestimo(email='Pedro@Test.COM'))
+        EmprestimoService.criar_emprestimo(self.item, dados_emprestimo(email='Pedro@Test.COM'))
         self.assertEqual(Morador.objects.get().email, 'pedro@test.com')
 
     def test_reaproveita_o_morador_existente(self):
         Morador.objects.create(nome='Pedro', ap='101J', email='pedro@test.com')
-        EmprestimoService.create_emprestimo(self.item, dados_emprestimo())
+        EmprestimoService.criar_emprestimo(self.item, dados_emprestimo())
         self.assertEqual(Morador.objects.count(), 1)
 
     def test_reaproveita_o_morador_mesmo_com_maiusculas_no_email(self):
         Morador.objects.create(nome='Pedro', ap='101J', email='pedro@test.com')
-        EmprestimoService.create_emprestimo(self.item, dados_emprestimo(email='PEDRO@test.com'))
+        EmprestimoService.criar_emprestimo(self.item, dados_emprestimo(email='PEDRO@test.com'))
         self.assertEqual(Morador.objects.count(), 1)
 
     def test_atualiza_nome_e_ap_do_morador_existente(self):
         Morador.objects.create(nome='Pedro', ap='101J', email='pedro@test.com')
-        EmprestimoService.create_emprestimo(self.item, dados_emprestimo(nome='Pedro Souza', ap='202J'))
+        EmprestimoService.criar_emprestimo(self.item, dados_emprestimo(nome='Pedro Souza', ap='202J'))
         morador = Morador.objects.get()
         self.assertEqual((morador.nome, morador.ap), ('Pedro Souza', '202J'))
 
@@ -194,20 +194,20 @@ class LogEmprestimoCriadoTestCase(TestCase):
         self.item = ItemCASD.objects.create(nome='Caixa de som', quant_total=3)
 
     def test_registra_um_log_criado(self):
-        emprestimo = EmprestimoService.create_emprestimo(self.item, dados_emprestimo(), ip='10.0.0.1')
+        emprestimo = EmprestimoService.criar_emprestimo(self.item, dados_emprestimo(), ip='10.0.0.1')
         log = LogEmprestimo.objects.get()
         self.assertEqual((log.id_emprestimo, log.event_type), (emprestimo, LogEmprestimo.Evento.CRIADO))
 
     def test_log_guarda_o_ip(self):
-        EmprestimoService.create_emprestimo(self.item, dados_emprestimo(), ip='10.0.0.1')
+        EmprestimoService.criar_emprestimo(self.item, dados_emprestimo(), ip='10.0.0.1')
         self.assertEqual(LogEmprestimo.objects.get().ip_aparelho, '10.0.0.1')
 
     def test_log_sem_ip_fica_nulo(self):
-        EmprestimoService.create_emprestimo(self.item, dados_emprestimo())
+        EmprestimoService.criar_emprestimo(self.item, dados_emprestimo())
         self.assertIsNone(LogEmprestimo.objects.get().ip_aparelho)
 
     def test_log_do_morador_nao_tem_admin(self):
-        EmprestimoService.create_emprestimo(self.item, dados_emprestimo(), ip='10.0.0.1')
+        EmprestimoService.criar_emprestimo(self.item, dados_emprestimo(), ip='10.0.0.1')
         self.assertIsNone(LogEmprestimo.objects.get().id_admin)
 
 

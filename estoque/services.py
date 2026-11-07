@@ -49,7 +49,7 @@ class EmprestimoService:
 
     @staticmethod
     @transaction.atomic
-    def create_emprestimo(item, dados, ip=None):
+    def criar_emprestimo(item, dados, ip=None):
         item = ItemCASD.objects.select_for_update().get(pk=item.pk)
         if not item.is_active:
             raise ValidationError("Este item não está mais disponível.")

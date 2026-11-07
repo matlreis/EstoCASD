@@ -70,7 +70,7 @@ def emprestimo_create(request, pk):
         if form.is_valid():
             try:
                 ip = get_client_ip(request)
-                EmprestimoService.create_emprestimo(item, form.cleaned_data, ip)
+                EmprestimoService.criar_emprestimo(item, form.cleaned_data, ip)
             except ValidationError as e:
                 form.add_error(None, e)
             else:
