@@ -32,7 +32,6 @@ class ItemCASD(Item):
 
 
 class ItemZeladoria(Item):
-    quant_uso = models.PositiveIntegerField('quantidade em uso', default=0)
     preco_unitario = models.DecimalField(
         'preço unitário', max_digits=8, decimal_places=2, null=True, blank=True,
         validators=[MinValueValidator(0)],
@@ -41,14 +40,6 @@ class ItemZeladoria(Item):
     class Meta(Item.Meta):
         verbose_name = 'item da zeladoria'
         verbose_name_plural = 'itens da zeladoria'
-
-    @property
-    def quant_disponivel(self) -> int:
-        return self.quant_total - self.quant_uso
-
-    @property
-    def em_uso(self) -> bool:
-        return self.quant_uso > 0
 
 
 class LogItemZeladoria(LogEvento):
@@ -61,7 +52,6 @@ class LogItemZeladoria(LogEvento):
     class Evento(models.TextChoices):
         CRIADO = 'CRIADO', 'Criado'
         QUANT_ALTERADA = 'QUANTIDADE_ALTERADA', 'Quantidade total alterada'
-        USO_ALTERADO = 'USO_ALTERADO', 'Quantidade em uso alterada'
         REMOVIDO = 'REMOVIDO', 'Removido'
 
     event_type = models.CharField(max_length=20, choices=Evento.choices)

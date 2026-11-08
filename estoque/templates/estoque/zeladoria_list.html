@@ -12,8 +12,7 @@
         <thead>
             <tr>
                 <th>Nome</th>
-                <th>Disponível</th>
-                <th>Em uso</th>
+                <th>Quantidade</th>
                 <th>Preço unitário</th>
                 <th>Ações</th>
             </tr>
@@ -22,8 +21,7 @@
             {% for item in itens %}
                 <tr>
                     <td>{{ item.nome }}</td>
-                    <td>{{ item.quant_disponivel }} / {{ item.quant_total }}</td>
-                    <td>{% if item.em_uso %}Sim ({{ item.quant_uso }}){% else %}Não{% endif %}</td>
+                    <td>{{ item.quant_total }}</td>
                     <td>{% if item.preco_unitario is not None %}R$ {{ item.preco_unitario }}{% else %}—{% endif %}</td>
                     <td class="acoes">
                         <a class="btn" href="{% url 'estoque:zeladoria_update' item.pk %}">Editar</a>
@@ -35,7 +33,7 @@
                     </td>
                 </tr>
             {% empty %}
-                <tr><td colspan="5">Nenhum item cadastrado na zeladoria.</td></tr>
+                <tr><td colspan="4">Nenhum item cadastrado na zeladoria.</td></tr>
             {% endfor %}
         </tbody>
     </table>

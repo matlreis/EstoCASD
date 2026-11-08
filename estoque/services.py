@@ -150,17 +150,12 @@ class ZeladoriaService:
     @transaction.atomic
     def update_item(item, dados, admin, ip=None):
         item = ItemZeladoria.objects.select_for_update().get(pk=item.pk)
-        if dados['quant_total'] < item.quant_uso:
-            raise ValidationError(
-                f'A quantidade total não pode ser menor que a quantidade em uso ({item.quant_uso}).'
-            )
-
         quant_anterior = item.quant_total
         for campo, valor in dados.items():
             setattr(item, campo, valor)
         item.save()
 
-        # alterar só nome ou preço não entra no histórico de utilização
+        # alterar só nome ou preço não entra no histórico do item
         if item.quant_total != quant_anterior:
             LogItemZeladoria.objects.create(
                 id_item=item, id_admin=admin, ip_aparelho=ip,
@@ -171,33 +166,8 @@ class ZeladoriaService:
 
     @staticmethod
     @transaction.atomic
-    def definir_quant_uso(item, quant_uso, admin, ip=None):
-        item = ItemZeladoria.objects.select_for_update().get(pk=item.pk)
-        if not 0 <= quant_uso <= item.quant_total:
-            raise ValidationError(
-                f'A quantidade em uso deve estar entre 0 e {item.quant_total}.'
-            )
-        # se o valor já é o atual, não realiza ação e não gera log
-        if quant_uso == item.quant_uso:
-            return item
-
-        quant_anterior = item.quant_uso
-        item.quant_uso = quant_uso
-        item.save(update_fields=['quant_uso'])
-        LogItemZeladoria.objects.create(
-            id_item=item, id_admin=admin, ip_aparelho=ip,
-            event_type=LogItemZeladoria.Evento.USO_ALTERADO,
-            quant_anterior=quant_anterior, quant_nova=quant_uso,
-        )
-        return item
-
-    @staticmethod
-    @transaction.atomic
     def delete_item(item, admin, ip=None):
         item = ItemZeladoria.objects.select_for_update().get(pk=item.pk)
-        if item.em_uso:
-            raise ValidationError('Há unidades deste item em uso.')
-
         item.is_active = False
         item.save(update_fields=['is_active'])
         LogItemZeladoria.objects.create(

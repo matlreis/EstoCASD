@@ -168,11 +168,7 @@ def zeladoria_update(request, pk):
 @require_POST
 def zeladoria_delete(request, pk):
     item = get_object_or_404(ItemZeladoria, pk=pk, is_active=True)
-    try:
-        ip = get_client_ip(request)
-        ZeladoriaService.delete_item(item, request.user, ip)
-    except ValidationError as e:
-        messages.error(request, e.messages[0])
-    else:
-        messages.success(request, 'Item removido.')
+    ip = get_client_ip(request)
+    ZeladoriaService.delete_item(item, request.user, ip)
+    messages.success(request, 'Item removido.')
     return redirect('estoque:zeladoria_list')
