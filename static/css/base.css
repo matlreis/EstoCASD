@@ -88,6 +88,12 @@ body {
     box-sizing: border-box;
 }
 
+.formulario .helptext {
+    margin-bottom: 4px;
+    font-size: 0.9em;
+    color: #555;
+}
+
 .errorlist {
     margin: 4px 0;
     padding: 0;

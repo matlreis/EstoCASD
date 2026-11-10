@@ -3,7 +3,7 @@ from datetime import timedelta
 from django import forms
 from django.utils import timezone
 
-from .models import ItemCASD
+from .models import ItemCASD, ItemZeladoria
 from .services import PRAZO_MAX_DIAS
 
 
@@ -11,6 +11,14 @@ class ItemCASDForm(forms.ModelForm):
     class Meta:
         model = ItemCASD
         fields = ['nome', 'quant_total']
+
+class ItemZeladoriaForm(forms.ModelForm):
+    class Meta:
+        model = ItemZeladoria
+        fields = ['nome', 'quant_total', 'preco_unitario']
+        help_texts = {
+            'preco_unitario': 'Opcional. Preencha apenas para itens vendidos.'
+        }
 
 class EmprestimoForm(forms.Form):
     # Limitar a data limite de devolução do item

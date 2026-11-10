@@ -4,7 +4,7 @@ from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.utils import timezone
 
-from .models import ItemCASD, Morador, Emprestimo, LogEmprestimo
+from .models import ItemCASD, Morador, Emprestimo, LogEmprestimo, ItemZeladoria, LogItemZeladoria
 
 
 # Prazo máximo de devolução do item do CASD
@@ -127,4 +127,58 @@ class EmprestimoService:
             Emprestimo.objects.ativos()
             .select_related('id_item', 'id_morador')
             .order_by('limit_date')
+        )
+
+
+class ZeladoriaService:
+
+    @staticmethod
+    def list_items():
+        return ItemZeladoria.objects.filter(is_active=True).order_by('nome')
+
+    @staticmethod
+    @transaction.atomic
+    def create_item(dados, admin, ip=None):
+        item = ItemZeladoria.objects.create(**dados)
+        LogItemZeladoria.objects.create(
+            id_item=item, id_admin=admin, ip_aparelho=ip,
+            event_type=LogItemZeladoria.Evento.CRIADO, quant_nova=item.quant_total,
+        )
+        return item
+
+    @staticmethod
+    @transaction.atomic
+    def update_item(item, dados, admin, ip=None):
+        item = ItemZeladoria.objects.select_for_update().get(pk=item.pk)
+        quant_anterior = item.quant_total
+        for campo, valor in dados.items():
+            setattr(item, campo, valor)
+        item.save()
+
+        # alterar só nome ou preço não entra no histórico do item
+        if item.quant_total != quant_anterior:
+            LogItemZeladoria.objects.create(
+                id_item=item, id_admin=admin, ip_aparelho=ip,
+                event_type=LogItemZeladoria.Evento.QUANT_ALTERADA,
+                quant_anterior=quant_anterior, quant_nova=item.quant_total,
+            )
+        return item
+
+    @staticmethod
+    @transaction.atomic
+    def delete_item(item, admin, ip=None):
+        item = ItemZeladoria.objects.select_for_update().get(pk=item.pk)
+        item.is_active = False
+        item.save(update_fields=['is_active'])
+        LogItemZeladoria.objects.create(
+            id_item=item, id_admin=admin, ip_aparelho=ip,
+            event_type=LogItemZeladoria.Evento.REMOVIDO,
+        )
+
+    @staticmethod
+    def historico(item):
+        return (
+            item.logitemzeladoria_set
+            .select_related('id_admin')
+            .order_by('-event_date', '-pk')
         )
