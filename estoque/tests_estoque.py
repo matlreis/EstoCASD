@@ -4,7 +4,7 @@ from django.test import TestCase
 
 from .models import Emprestimo, ItemCASD, ItemZeladoria, Morador
 from .services import EstoqueService
-from .helpers_tests import AT, DE, criar_emprestimo, status_atual
+from .helpers_tests import AT, DE, DS, criar_emprestimo, status_atual
 
 
 def dados_item(**alteracoes):
@@ -308,3 +308,8 @@ class DeleteItemEmprestimosTestCase(TestCase):
         with self.assertRaises(ValidationError):
             EstoqueService.delete_item(self.item)
         self.assertIn(self.item, EstoqueService.list_items())
+
+    def test_bloqueia_com_devolucao_apenas_sinalizada(self):
+        criar_emprestimo(self.item, self.pedro, status=DS)
+        with self.assertRaises(ValidationError):
+            EstoqueService.delete_item(self.item)

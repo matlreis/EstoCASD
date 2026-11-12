@@ -7,7 +7,7 @@ from django.urls import reverse
 
 from .forms import EmprestimoForm
 from .models import Emprestimo, ItemCASD, LogEmprestimo, Morador
-from .services import PRAZO_MAX_DIAS, EmprestimoService, EstoqueService
+from .services import PRAZO_MAX_DIAS, EmprestimoService
 from .helpers_tests import HOJE, FIXAR_HOJE, AT, DS, DE, criar_emprestimo, criar_admin, status_atual
 
 
@@ -510,24 +510,6 @@ class ListarAtivosTestCase(TestCase):
             for emprestimo in EmprestimoService.listar_ativos():
                 emprestimo.id_item.nome
                 emprestimo.id_morador.nome
-
-
-class RemoverItemComEmprestimoTestCase(TestCase):
-    def setUp(self):
-        self.admin = criar_admin()
-        self.item = ItemCASD.objects.create(nome='Caixa de som', quant_total=3, quant_emprestada=1)
-        self.pedro = Morador.objects.create(nome='Pedro', ap='101J', email='pedro@test.com')
-        self.emprestimo = criar_emprestimo(self.item, self.pedro, status=DS)
-
-    def test_bloqueado_com_devolucao_apenas_sinalizada(self):
-        with self.assertRaises(ValidationError):
-            EstoqueService.delete_item(self.item)
-
-    def test_liberado_depois_da_confirmacao(self):
-        EmprestimoService.confirmar_devolucao(self.emprestimo, self.admin)
-        EstoqueService.delete_item(self.item)
-        self.item.refresh_from_db()
-        self.assertFalse(self.item.is_active)
 
 
 class DevolucaoSinalizarViewTestCase(TestCase):
