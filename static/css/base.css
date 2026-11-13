@@ -13,20 +13,12 @@ body {
     margin: 0;
     font-family: system-ui, sans-serif;
     color: var(--cor-texto);
-    background: var(--cor-fundo);
-}
-
-
-body.pagina-login {
-    background-image: url("imagens/ImagemCASD.jpeg");
-}
-
-body.pagina-login,
-body.pagina-estoque {
+    background-color: var(--cor-fundo);
     background-image: url("imagens/ImagemCASD.jpeg");
     background-size: cover;
     background-position: center;
     background-repeat: no-repeat;
+    background-attachment: fixed;
     min-height: 100vh;
 }
 
