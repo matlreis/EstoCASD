@@ -9,7 +9,9 @@
 </head>
 <body class="{% block body_class %}{% endblock %}">
     <header class="cabecalho">
-        <a href="{% url 'estoque:item_list' %}">EstoCASD</a>
+        <a href="{% url 'estoque:item_list' %}" class="logo-link">
+    <img src="{% static 'css/imagens/logoCASD.png' %}" alt="Logo CASD" class="logo-img">
+        </a>
 
         <nav class="cabecalho-usuario">
             {% if user.is_authenticated %}

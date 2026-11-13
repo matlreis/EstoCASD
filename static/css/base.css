@@ -21,10 +21,6 @@ body.pagina-login {
     background-image: url("imagens/ImagemCASD.jpeg");
 }
 
-body.pagina-estoque {
-    background-image: url("imagens/ImagemCASD.jpeg");
-}
-
 body.pagina-login,
 body.pagina-estoque {
     background-image: url("imagens/ImagemCASD.jpeg");
@@ -38,8 +34,10 @@ body.pagina-estoque {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 12px 20px;
-    background: var(--cor-painel);
+    padding: 10px 24px;
+    background-color: #121212;
+    color: #ffffff;
+    border-bottom: 2px solid #f5c400;
 }
 
 .cabecalho-usuario {
@@ -56,6 +54,16 @@ body.pagina-estoque {
     font-weight: bold;
     color: inherit;
     text-decoration: none;
+}
+
+.cabecalho a:hover {
+    color: #f5c400;
+}
+
+.logo-img {
+    height: 42px;
+    width: auto;
+    display: block;
 }
 
 .conteudo {
