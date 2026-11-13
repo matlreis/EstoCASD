@@ -16,6 +16,24 @@ body {
     background: var(--cor-fundo);
 }
 
+
+body.pagina-login {
+    background-image: url("imagens/ImagemCASD.jpeg");
+}
+
+body.pagina-estoque {
+    background-image: url("imagens/ImagemCASD.jpeg");
+}
+
+body.pagina-login,
+body.pagina-estoque {
+    background-image: url("imagens/ImagemCASD.jpeg");
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    min-height: 100vh;
+}
+
 .cabecalho {
     display: flex;
     align-items: center;

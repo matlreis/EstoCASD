@@ -7,7 +7,7 @@
     <title>{% block title %}EstoCASD{% endblock %}</title>
     <link rel="stylesheet" href="{% static 'css/base.css' %}">
 </head>
-<body>
+<body class="{% block body_class %}{% endblock %}">
     <header class="cabecalho">
         <a href="{% url 'estoque:item_list' %}">EstoCASD</a>
 
