@@ -46,6 +46,13 @@ rodar o servidor de desenvolvimento na porta 8000.
 > Nota: algumas migrações requerem que o banco de dados local seja recriado do 
 zero.
 
+## Primeiro superusuário
+
+No estado atual do projeto, o primeiro superusuário deve ser criado a partir da
+linha de comando. Execute `uv run manage.py createsuperuser` para criá-lo. A
+partir dele, outros administradores podem ser criados a partir da interface do
+site.
+
 # Testes
 
 Execute o comando `uv run manage.py test` para rodar a bateria de testes, que
