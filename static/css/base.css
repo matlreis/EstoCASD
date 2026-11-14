@@ -35,7 +35,7 @@ body {
 .cabecalho-usuario {
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 28px;
 }
 
 .cabecalho-usuario form {
@@ -44,7 +44,7 @@ body {
 
 .cabecalho-usuario span {
     border-left: 1px solid #444;
-    padding-left: 14px;
+    padding-left: 28px;
     margin-left: 4px;
     color: #f5c400;
     font-size: 0.9rem;
