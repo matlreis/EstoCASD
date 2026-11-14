@@ -172,3 +172,8 @@ def zeladoria_delete(request, pk):
     ZeladoriaService.delete_item(item, request.user, ip)
     messages.success(request, 'Item removido.')
     return redirect('estoque:zeladoria_list')
+
+def zeladoria_historico(request, pk):
+    item = get_object_or_404(ItemZeladoria, pk=pk, is_active=True)
+    context = {'item': item, 'logs': ZeladoriaService.historico(item)}
+    return render(request, 'estoque/zeladoria_historico.html', context)

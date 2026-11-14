@@ -1,0 +1,35 @@
+{% extends 'base.html' %}
+
+{% block title %}Histórico de {{ item.nome }} | EstoCASD{% endblock %}
+
+{% block content %}
+    <div class="titulo-pagina">
+        <h1>Histórico: {{ item.nome }}</h1>
+        <a class="btn" href="{% url 'estoque:zeladoria_list' %}">Voltar</a>
+    </div>
+
+    <table class="tabela">
+        <thead>
+            <tr>
+                <th>Data</th>
+                <th>Evento</th>
+                <th>Antes</th>
+                <th>Depois</th>
+                <th>Admin</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for log in logs %}
+                <tr>
+                    <td>{{ log.event_date|date:"d/m/Y H:i" }}</td>
+                    <td>{{ log.get_event_type_display }}</td>
+                    <td>{{ log.quant_anterior|default_if_none:"—" }}</td>
+                    <td>{{ log.quant_nova|default_if_none:"—" }}</td>
+                    <td>{{ log.id_admin }}</td>
+                </tr>
+            {% empty %}
+                <tr><td colspan="5">Nenhum registro.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+{% endblock %}
