@@ -4,7 +4,15 @@ from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.utils import timezone
 
-from .models import ItemCASD, Morador, Emprestimo, LogEmprestimo, ItemZeladoria, LogItemZeladoria
+from .models import (
+    ItemCASD,
+    Morador,
+    Emprestimo,
+    LogEmprestimo,
+    ItemZeladoria,
+    LogItemZeladoria,
+    Venda
+)
 
 
 # Prazo máximo de devolução do item do CASD
@@ -173,6 +181,36 @@ class ZeladoriaService:
         LogItemZeladoria.objects.create(
             id_item=item, id_admin=admin, ip_aparelho=ip,
             event_type=LogItemZeladoria.Evento.REMOVIDO,
+        )
+
+    @staticmethod
+    @transaction.atomic
+    def registrar_venda(item, dados, admin, ip=None):
+        item = ItemZeladoria.objects.select_for_update().get(pk=item.pk)
+        if item.preco_unitario is None:
+            raise ValidationError('Este item não está à venda.')
+        if not 1 <= dados['quant'] <= item.quant_total:
+            raise ValidationError(f'Quantidade indisponível. Em estoque: {item.quant_total}.')
+        if not item.is_active:
+            raise ValidationError('Este item foi removido.')
+
+        quant_anterior = item.quant_total
+        item.quant_total -= dados['quant']
+        item.save(update_fields=['quant_total'])
+        LogItemZeladoria.objects.create(
+            id_item=item, id_admin=admin, ip_aparelho=ip,
+            event_type=LogItemZeladoria.Evento.VENDA,
+            quant_anterior=quant_anterior, quant_nova=item.quant_total
+        )
+        return Venda.objects.create(
+            id_item=item, id_admin=admin, preco_unitario=item.preco_unitario, **dados,
+        )
+
+    @staticmethod
+    def listar_vendas():
+        return (
+            Venda.objects.select_related('id_item', 'id_admin')
+            .order_by('-data', '-pk')
         )
 
     @staticmethod
