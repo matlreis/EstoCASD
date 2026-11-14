@@ -1,3 +1,4 @@
+from datetime import UTC, datetime
 from decimal import Decimal
 
 from django.test import TestCase
@@ -258,6 +259,10 @@ class ZeladoriaAnonimoTestCase(TestCase):
         url = reverse('estoque:zeladoria_delete', args=[self.item.pk])
         self.assertRedirecionaParaLogin(self.client.post(url), url)
 
+    def test_historico_redireciona(self):
+        url = reverse('estoque:zeladoria_historico', args=[self.item.pk])
+        self.assertRedirecionaParaLogin(self.client.get(url), url)
+
     def test_post_de_cadastro_nao_cria_item(self):
         self.client.post(reverse('estoque:zeladoria_create'), dados_zeladoria(nome='Balde', preco_unitario=''))
         self.assertFalse(ItemZeladoria.objects.filter(nome='Balde').exists())
@@ -320,6 +325,11 @@ class ZeladoriaListViewTestCase(TestCase):
         item = criar_item_zeladoria()
         resposta = self.client.get(self.url)
         self.assertContains(resposta, reverse('estoque:zeladoria_update', args=[item.pk]))
+
+    def test_tem_link_de_historico(self):
+        item = criar_item_zeladoria()
+        resposta = self.client.get(self.url)
+        self.assertContains(resposta, f'href="{reverse("estoque:zeladoria_historico", args=[item.pk])}">Histórico')
 
     def test_tem_botao_de_remocao_com_confirmacao(self):
         criar_item_zeladoria(nome='Vassoura')
@@ -473,3 +483,90 @@ class ZeladoriaDeleteViewTestCase(TestCase):
     def test_sucesso_mostra_mensagem(self):
         resposta = self.client.post(self.url, follow=True)
         self.assertContains(resposta, 'Item removido.')
+
+
+class ZeladoriaHistoricoViewTestCase(TestCase):
+    # 17:30 em UTC: a página deve mostrar 14:30, no fuso de São Paulo (UTC-3)
+    DATA_LOG = datetime(2026, 11, 5, 17, 30, tzinfo=UTC)
+
+    def setUp(self):
+        self.admin = criar_admin()
+        self.client.force_login(self.admin)
+        self.item = ZeladoriaService.create_item(dados_zeladoria(quant_total=5), self.admin)
+        self.url = reverse('estoque:zeladoria_historico', args=[self.item.pk])
+
+    def abrir(self):
+        # fixa a data de todos os logs para que as linhas esperadas sejam exatas
+        LogItemZeladoria.objects.update(event_date=self.DATA_LOG)
+        return self.client.get(self.url)
+
+    def alterar_total(self, quant_total, admin=None):
+        ZeladoriaService.update_item(self.item, dados_zeladoria(quant_total=quant_total), admin or self.admin)
+
+    def test_usa_o_template_de_historico(self):
+        resposta = self.abrir()
+        self.assertTemplateUsed(resposta, 'estoque/zeladoria_historico.html')
+
+    def test_titulo_mostra_o_nome_do_item(self):
+        resposta = self.abrir()
+        self.assertContains(resposta, '<h1>Histórico: Extensão</h1>', html=True)
+
+    def test_voltar_leva_para_a_zeladoria(self):
+        resposta = self.abrir()
+        self.assertContains(resposta, f'href="{reverse("estoque:zeladoria_list")}">Voltar')
+
+    def test_item_inexistente_retorna_404(self):
+        resposta = self.client.get(reverse('estoque:zeladoria_historico', args=[self.item.pk + 1]))
+        self.assertEqual(resposta.status_code, 404)
+
+    def test_item_removido_retorna_404(self):
+        ZeladoriaService.delete_item(self.item, self.admin)
+        resposta = self.abrir()
+        self.assertEqual(resposta.status_code, 404)
+
+    def test_data_no_formato_e_fuso_local(self):
+        resposta = self.abrir()
+        self.assertContains(resposta, '<td>05/11/2026 14:30</td>', html=True)
+
+    def test_criacao_mostra_traco_antes(self):
+        resposta = self.abrir()
+        self.assertContains(resposta, '<tr><td>05/11/2026 14:30</td><td>Criado</td>'
+                                      '<td>—</td><td>5</td><td>Alice</td></tr>', html=True)
+
+    def test_alteracao_mostra_antes_e_depois(self):
+        self.alterar_total(3)
+        resposta = self.abrir()
+        self.assertContains(resposta, '<tr><td>05/11/2026 14:30</td><td>Quantidade total alterada</td>'
+                                      '<td>5</td><td>3</td><td>Alice</td></tr>', html=True)
+
+    def test_quantidade_zero_nao_vira_traco(self):
+        # default_if_none no template: só None vira "—", o 0 continua aparecendo
+        self.alterar_total(0)
+        resposta = self.abrir()
+        self.assertContains(resposta, '<tr><td>05/11/2026 14:30</td><td>Quantidade total alterada</td>'
+                                      '<td>5</td><td>0</td><td>Alice</td></tr>', html=True)
+
+    def test_cada_linha_mostra_o_admin_do_evento(self):
+        self.alterar_total(3, admin=criar_admin(email='bruno@test.com', nome='Bruno'))
+        resposta = self.abrir()
+        self.assertContains(resposta, '<td>Bruno</td>', count=1, html=True)
+        self.assertContains(resposta, '<td>Alice</td>', count=1, html=True)
+
+    def test_mais_recente_vem_primeiro(self):
+        self.alterar_total(3)
+        conteudo = self.abrir().content.decode()
+        self.assertLess(conteudo.index('Quantidade total alterada'), conteudo.index('<td>Criado</td>'))
+
+    def test_nao_mostra_logs_de_outro_item(self):
+        ZeladoriaService.create_item(dados_zeladoria(nome='Balde'), self.admin)
+        resposta = self.abrir()
+        self.assertContains(resposta, '<td>Criado</td>', count=1, html=True)
+
+    def test_com_registros_nao_mostra_aviso(self):
+        resposta = self.abrir()
+        self.assertNotContains(resposta, 'Nenhum registro.')
+
+    def test_sem_registros_mostra_aviso(self):
+        sem_logs = criar_item_zeladoria(nome='Balde')
+        resposta = self.client.get(reverse('estoque:zeladoria_historico', args=[sem_logs.pk]))
+        self.assertContains(resposta, 'Nenhum registro.')
