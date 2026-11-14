@@ -51,6 +51,7 @@ class LogItemZeladoria(LogEvento):
 
     class Evento(models.TextChoices):
         CRIADO = 'CRIADO', 'Criado'
+        VENDA = 'VENDA', 'Venda'
         QUANT_ALTERADA = 'QUANTIDADE_ALTERADA', 'Quantidade total alterada'
         REMOVIDO = 'REMOVIDO', 'Removido'
 
@@ -118,3 +119,25 @@ class LogEmprestimo(LogEvento):
         DEVOLUCAO_CONFIRMADA = 'DEVOLUCAO_CONFIRMADA', 'Devolução confirmada'
 
     event_type = models.CharField(max_length=20, choices=Evento.choices)
+
+
+class Venda(models.Model):
+    id_item = models.ForeignKey(ItemZeladoria, on_delete=models.PROTECT, db_column='id_item')
+    id_admin = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, db_column='id_admin')
+
+    nome_comprador = models.CharField('nome do comprador', max_length=255)
+    ap_vaga = models.CharField('AP e vaga', max_length=50)
+
+    quant = models.PositiveIntegerField('quantidade', validators=[MinValueValidator(1)])
+    # copiado do item no momento da venda: o preço do item pode mudar depois
+    preco_unitario = models.DecimalField('preço unitário', max_digits=8, decimal_places=2)
+    notas = models.TextField(blank=True)
+    data = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'venda'
+        verbose_name_plural = 'vendas'
+
+    @property
+    def total(self):
+        return self.quant * self.preco_unitario
