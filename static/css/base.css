@@ -42,6 +42,16 @@ body {
     margin: 0;
 }
 
+.cabecalho-usuario span {
+    border-left: 1px solid #444;
+    padding-left: 14px;
+    margin-left: 4px;
+    color: #f5c400;
+    font-size: 0.9rem;
+    font-weight: 500;
+}
+
+
 .cabecalho a {
     font-weight: bold;
     color: inherit;
