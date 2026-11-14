@@ -1,12 +1,14 @@
 from datetime import UTC, datetime
 from decimal import Decimal
 
+from django.core.exceptions import ValidationError
+from django.db.models import ProtectedError
 from django.test import TestCase
 from django.urls import reverse
 from django.utils import timezone
 
 from .forms import ItemZeladoriaForm
-from .models import ItemCASD, ItemZeladoria, LogItemZeladoria
+from .models import ItemCASD, ItemZeladoria, LogItemZeladoria, Venda
 from .services import ZeladoriaService
 from .helpers_tests import criar_admin
 
@@ -16,6 +18,13 @@ EVENTO = LogItemZeladoria.Evento
 
 def dados_zeladoria(**alteracoes):
     dados = {'nome': 'Extensão', 'quant_total': 5, 'preco_unitario': None}
+    dados.update(alteracoes)
+    return dados
+
+
+def dados_venda(**alteracoes):
+    # mesmo formato do cleaned_data do VendaForm
+    dados = {'nome_comprador': 'Pedro', 'ap_vaga': '101D Vaga A', 'quant': 1, 'notas': ''}
     dados.update(alteracoes)
     return dados
 
@@ -188,6 +197,194 @@ class HistoricoZeladoriaTestCase(TestCase):
     def test_nao_inclui_logs_de_outro_item(self):
         outro = ZeladoriaService.create_item(dados_zeladoria(nome='Balde'), self.admin)
         self.assertNotIn(outro, [log.id_item for log in ZeladoriaService.historico(self.item)])
+
+
+class RegistrarVendaTestCase(TestCase):
+    def setUp(self):
+        self.admin = criar_admin()
+        self.item = criar_item_zeladoria(nome='Água 500ml', quant_total=10, preco_unitario=Decimal('2.50'))
+
+    def vender(self, ip=None, item=None, **alteracoes):
+        return ZeladoriaService.registrar_venda(item or self.item, dados_venda(**alteracoes), self.admin, ip)
+
+    def estoque(self):
+        return ItemZeladoria.objects.get(pk=self.item.pk).quant_total
+
+    def test_retorna_a_venda_criada(self):
+        venda = self.vender()
+        self.assertEqual(Venda.objects.get(), venda)
+
+    def test_grava_os_dados_da_venda(self):
+        venda = self.vender(nome_comprador='Pedro', ap_vaga='101D Vaga A', quant=3, notas='evento da Atlética')
+        venda.refresh_from_db()
+        self.assertEqual((venda.id_item, venda.nome_comprador, venda.ap_vaga, venda.quant, venda.notas),
+                         (self.item, 'Pedro', '101D Vaga A', 3, 'evento da Atlética'))
+
+    def test_venda_guarda_o_admin(self):
+        venda = self.vender()
+        self.assertEqual(venda.id_admin, self.admin)
+
+    def test_copia_o_preco_do_item(self):
+        venda = self.vender()
+        venda.refresh_from_db()
+        self.assertEqual(venda.preco_unitario, Decimal('2.50'))
+
+    def test_reduz_o_estoque(self):
+        self.vender(quant=3)
+        self.assertEqual(self.estoque(), 7)
+
+    def test_registra_log_venda_com_anterior_e_nova(self):
+        self.vender(quant=3)
+        log = LogItemZeladoria.objects.get()
+        self.assertEqual((log.id_item, log.event_type, log.quant_anterior, log.quant_nova),
+                         (self.item, EVENTO.VENDA, 10, 7))
+
+    def test_log_guarda_admin_e_ip(self):
+        self.vender(ip='10.0.0.1')
+        log = LogItemZeladoria.objects.get()
+        self.assertEqual((log.id_admin, log.ip_aparelho), (self.admin, '10.0.0.1'))
+
+    def test_log_sem_ip_fica_nulo(self):
+        self.vender()
+        self.assertIsNone(LogItemZeladoria.objects.get().ip_aparelho)
+
+    def test_vendas_seguidas_acumulam(self):
+        self.vender(quant=3)
+        self.vender(quant=4)
+        logs = LogItemZeladoria.objects.order_by('pk')
+        self.assertEqual([(log.quant_anterior, log.quant_nova) for log in logs], [(10, 7), (7, 3)])
+
+    def test_aceita_vender_exatamente_o_estoque(self):
+        self.vender(quant=10)
+        self.assertEqual(self.estoque(), 0)
+
+    def test_recusa_vender_um_a_mais_que_o_estoque(self):
+        with self.assertRaisesMessage(ValidationError, 'Quantidade indisponível. Em estoque: 10.'):
+            self.vender(quant=11)
+
+    def test_recusa_quantidade_zero(self):
+        with self.assertRaisesMessage(ValidationError, 'Quantidade indisponível.'):
+            self.vender(quant=0)
+
+    def test_recusa_item_com_estoque_zerado(self):
+        ItemZeladoria.objects.filter(pk=self.item.pk).update(quant_total=0)
+        with self.assertRaisesMessage(ValidationError, 'Em estoque: 0.'):
+            self.vender(quant=1)
+
+    def test_recusa_item_sem_preco(self):
+        sem_preco = criar_item_zeladoria(nome='Vassoura', quant_total=3)
+        with self.assertRaisesMessage(ValidationError, 'Este item não está à venda.'):
+            self.vender(item=sem_preco)
+
+    def test_aceita_item_com_preco_zero(self):
+        # "is None" no service: preço 0 é um preço, o item está à venda
+        gratis = criar_item_zeladoria(nome='Panfleto', quant_total=5, preco_unitario=Decimal('0'))
+        venda = self.vender(item=gratis, quant=2)
+        self.assertEqual(venda.total, Decimal('0'))
+
+    def test_venda_recusada_nao_deixa_rastro(self):
+        sem_preco = criar_item_zeladoria(nome='Vassoura', quant_total=3)
+        casos = [('acima do estoque', self.item, 11), ('quantidade zero', self.item, 0),
+                 ('item sem preço', sem_preco, 1)]
+        for caso, item, quant in casos:
+            with self.subTest(caso):
+                with self.assertRaises(ValidationError):
+                    self.vender(item=item, quant=quant)
+                item.refresh_from_db()
+                self.assertEqual(item.quant_total, 10 if item == self.item else 3)
+                self.assertFalse(Venda.objects.exists())
+                self.assertFalse(LogItemZeladoria.objects.exists())
+
+    def test_mudar_o_preco_depois_nao_altera_a_venda(self):
+        venda = self.vender(quant=2)
+        ZeladoriaService.update_item(self.item, dados_zeladoria(nome='Água 500ml', quant_total=8,
+                                                                preco_unitario=Decimal('3.00')), self.admin)
+        venda.refresh_from_db()
+        self.assertEqual((venda.preco_unitario, venda.total), (Decimal('2.50'), Decimal('5.00')))
+
+    # Instância desatualizada: o self.item foi lido com 10 unidades a R$ 2,50, e outro
+    # admin mudou o banco depois. O service deve trabalhar com o que está no banco.
+
+    def test_instancia_desatualizada_usa_o_estoque_do_banco(self):
+        ItemZeladoria.objects.filter(pk=self.item.pk).update(quant_total=2)
+        self.vender(quant=1)
+        self.assertEqual(self.estoque(), 1)
+
+    def test_instancia_desatualizada_nao_vende_alem_do_banco(self):
+        ItemZeladoria.objects.filter(pk=self.item.pk).update(quant_total=2)
+        with self.assertRaisesMessage(ValidationError, 'Em estoque: 2.'):
+            self.vender(quant=3)
+
+    def test_instancia_desatualizada_usa_o_preco_do_banco(self):
+        ItemZeladoria.objects.filter(pk=self.item.pk).update(preco_unitario=Decimal('3.00'))
+        venda = self.vender()
+        self.assertEqual(venda.preco_unitario, Decimal('3.00'))
+
+    def test_preco_apagado_no_banco_recusa_a_venda(self):
+        ItemZeladoria.objects.filter(pk=self.item.pk).update(preco_unitario=None)
+        with self.assertRaisesMessage(ValidationError, 'Este item não está à venda.'):
+            self.vender()
+
+
+class VendaModelTestCase(TestCase):
+    def setUp(self):
+        self.admin = criar_admin()
+        self.item = criar_item_zeladoria(quant_total=10, preco_unitario=Decimal('2.50'))
+
+    def test_total_e_quantidade_vezes_preco(self):
+        venda = ZeladoriaService.registrar_venda(self.item, dados_venda(quant=3), self.admin)
+        self.assertEqual(venda.total, Decimal('7.50'))
+
+    def test_item_com_vendas_nao_pode_ser_apagado_de_fato(self):
+        # PROTECT: a remoção da zeladoria é sempre soft delete
+        ZeladoriaService.registrar_venda(self.item, dados_venda(), self.admin)
+        with self.assertRaises(ProtectedError):
+            self.item.delete()
+
+
+class ListarVendasTestCase(TestCase):
+    def setUp(self):
+        self.admin = criar_admin()
+        self.item = criar_item_zeladoria(quant_total=10, preco_unitario=Decimal('2.50'))
+
+    def vender(self, quant, item=None):
+        return ZeladoriaService.registrar_venda(item or self.item, dados_venda(quant=quant), self.admin)
+
+    def quantidades(self):
+        return [venda.quant for venda in ZeladoriaService.listar_vendas()]
+
+    def test_sem_vendas_retorna_vazio(self):
+        self.assertFalse(ZeladoriaService.listar_vendas().exists())
+
+    def test_mais_recente_vem_primeiro(self):
+        for quant in (1, 2, 3):
+            self.vender(quant)
+        self.assertEqual(self.quantidades(), [3, 2, 1])
+
+    def test_mesmo_horario_desempata_pela_ordem_de_criacao(self):
+        self.vender(1)
+        self.vender(2)
+        Venda.objects.update(data=timezone.now())
+        self.assertEqual(self.quantidades(), [2, 1])
+
+    def test_inclui_vendas_de_todos_os_itens(self):
+        balde = criar_item_zeladoria(nome='Balde', quant_total=5, preco_unitario=Decimal('4.90'))
+        self.vender(1)
+        self.vender(2, item=balde)
+        self.assertEqual(Venda.objects.count(), ZeladoriaService.listar_vendas().count())
+
+    def test_inclui_venda_de_item_removido(self):
+        venda = self.vender(1)
+        ZeladoriaService.delete_item(self.item, self.admin)
+        self.assertIn(venda, ZeladoriaService.listar_vendas())
+
+    def test_ler_item_e_admin_nao_gera_consultas_extras(self):
+        for quant in (1, 2, 3):
+            self.vender(quant)
+        with self.assertNumQueries(1):
+            for venda in ZeladoriaService.listar_vendas():
+                venda.id_item.nome
+                venda.id_admin.nome
 
 
 class ItemZeladoriaFormTestCase(TestCase):
