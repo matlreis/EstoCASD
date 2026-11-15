@@ -1,0 +1,39 @@
+{% extends 'base.html' %}
+
+{% block title %}Vendas | EstoCASD{% endblock %}
+
+{% block content %}
+    <div class="titulo-pagina">
+        <h1>Histórico de vendas</h1>
+        <a class="btn" href="{% url 'estoque:zeladoria_list' %}">Voltar</a>
+    </div>
+    
+    <table class="tabela">
+        <thead>
+            <tr>
+                <th>Data</th>
+                <th>Item</th>
+                <th>Quantidade</th>
+                <th>Preço</th>
+                <th>Comprador</th>
+                <th>Notas</th>
+                <th>Registrada por</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for venda in vendas %}
+                <tr>
+                    <td>{{ venda.data|date:"d/m/Y H:i" }}</td>
+                    <td>{{ venda.id_item.nome }}</td>
+                    <td>{{ venda.quant }}</td>
+                    <td>R$ {{ venda.total }}</td>
+                    <td>{{ venda.nome_comprador }} - {{ venda.ap_vaga }}</td>
+                    <td>{{ venda.notas|default:"—" }}</td>
+                    <td>{{ venda.id_admin.nome }}</td>
+                </tr>
+            {% empty %}
+                <tr><td colspan="7">Nenhuma venda registrada.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+{% endblock %}

@@ -204,3 +204,8 @@ def zeladoria_venda(request, pk):
 
     context = {'form': form, 'item': item}
     return render(request, 'estoque/zeladoria_venda_form.html', context)
+
+def venda_list(request):
+    vendas = ZeladoriaService.listar_vendas()
+    context = {'vendas': vendas}
+    return render(request, 'estoque/venda_list.html', context)

@@ -14,6 +14,7 @@ urlpatterns = [
     path('emprestimos/<int:pk>/confirmar/', views.devolucao_confirmar, name='devolucao_confirmar'),
     path('zeladoria/', views.zeladoria_list, name='zeladoria_list'),
     path('zeladoria/novo/', views.zeladoria_create, name='zeladoria_create'),
+    path('zeladoria/vendas/', views.venda_list, name='venda_list'),
     path('zeladoria/<int:pk>/editar/', views.zeladoria_update, name='zeladoria_update'),
     path('zeladoria/<int:pk>/remover/', views.zeladoria_delete, name='zeladoria_delete'),
     path('zeladoria/<int:pk>/historico/', views.zeladoria_historico, name='zeladoria_historico'),
