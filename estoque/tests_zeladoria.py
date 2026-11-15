@@ -969,8 +969,8 @@ class ZeladoriaVendaViewTestCase(TestCase):
         self.assertNaoVendeu()
 
     def test_item_sem_preco_mostra_erro_do_service(self):
-        # o botão some, mas a URL pode ser aberta direto ou o preço apagado entre o GET e o POST
+        # itens com preço unitário nulo devem retornar 404 na rota de venda
         ItemZeladoria.objects.filter(pk=self.item.pk).update(preco_unitario=None)
         resposta = self.post()
-        self.assertContains(resposta, 'Este item não está à venda.')
+        self.assertEqual(resposta.status_code, 404)
         self.assertNaoVendeu()

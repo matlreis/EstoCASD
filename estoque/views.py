@@ -185,7 +185,7 @@ def zeladoria_historico(request, pk):
     return render(request, 'estoque/zeladoria_historico.html', context)
 
 def zeladoria_venda(request, pk):
-    item = get_object_or_404(ItemZeladoria, pk=pk, is_active=True)
+    item = get_object_or_404(ItemZeladoria, pk=pk, is_active=True, preco_unitario__isnull=False)
 
     if request.method == 'POST':
         form = VendaForm(request.POST)
