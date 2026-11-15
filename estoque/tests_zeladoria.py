@@ -520,6 +520,10 @@ class ZeladoriaAnonimoTestCase(TestCase):
         url = reverse('estoque:zeladoria_venda', args=[self.item.pk])
         self.assertRedirecionaParaLogin(self.client.get(url), url)
 
+    def test_historico_de_vendas_redireciona(self):
+        url = reverse('estoque:venda_list')
+        self.assertRedirecionaParaLogin(self.client.get(url), url)
+
     def test_post_de_cadastro_nao_cria_item(self):
         self.client.post(reverse('estoque:zeladoria_create'), dados_zeladoria(nome='Balde', preco_unitario=''))
         self.assertFalse(ItemZeladoria.objects.filter(nome='Balde').exists())
@@ -609,6 +613,10 @@ class ZeladoriaListViewTestCase(TestCase):
         item = criar_item_zeladoria(preco_unitario=Decimal('0'))
         resposta = self.client.get(self.url)
         self.assertContains(resposta, reverse('estoque:zeladoria_venda', args=[item.pk]))
+
+    def test_tem_link_para_o_historico_de_vendas(self):
+        resposta = self.client.get(self.url)
+        self.assertContains(resposta, f'href="{reverse("estoque:venda_list")}">Histórico de vendas')
 
     def test_tem_botao_de_remocao_com_confirmacao(self):
         criar_item_zeladoria(nome='Vassoura')
@@ -911,6 +919,19 @@ class ZeladoriaVendaViewTestCase(TestCase):
         self.assertEqual(resposta.status_code, 404)
         self.assertNaoVendeu()
 
+    def test_item_sem_preco_retorna_404(self):
+        # o botão some na lista, mas a URL ainda pode ser aberta direto
+        ItemZeladoria.objects.filter(pk=self.item.pk).update(preco_unitario=None)
+        resposta = self.client.get(self.url)
+        self.assertEqual(resposta.status_code, 404)
+
+    def test_post_em_item_sem_preco_retorna_404_e_nao_vende(self):
+        # o preço pode ter sido apagado entre o GET e o POST
+        ItemZeladoria.objects.filter(pk=self.item.pk).update(preco_unitario=None)
+        resposta = self.post()
+        self.assertEqual(resposta.status_code, 404)
+        self.assertNaoVendeu()
+
     def test_cria_a_venda(self):
         self.post(nome_comprador='Pedro', ap_vaga='101D Vaga A', quant=3, notas='evento da Atlética')
         venda = Venda.objects.get()
@@ -968,9 +989,110 @@ class ZeladoriaVendaViewTestCase(TestCase):
         self.post(nome_comprador='')
         self.assertNaoVendeu()
 
-    def test_item_sem_preco_mostra_erro_do_service(self):
-        # itens com preço unitário nulo devem retornar 404 na rota de venda
-        ItemZeladoria.objects.filter(pk=self.item.pk).update(preco_unitario=None)
-        resposta = self.post()
-        self.assertEqual(resposta.status_code, 404)
-        self.assertNaoVendeu()
+
+class VendaListViewTestCase(TestCase):
+    # 17:30 em UTC: a página deve mostrar 14:30, no fuso de São Paulo (UTC-3)
+    DATA_VENDA = datetime(2026, 11, 5, 17, 30, tzinfo=UTC)
+
+    def setUp(self):
+        self.admin = criar_admin()
+        self.client.force_login(self.admin)
+        self.item = criar_item_zeladoria(nome='Água 500ml', quant_total=40, preco_unitario=Decimal('2.50'))
+        self.url = reverse('estoque:venda_list')
+
+    def vender(self, item=None, admin=None, **alteracoes):
+        return ZeladoriaService.registrar_venda(item or self.item, dados_venda(**alteracoes), admin or self.admin)
+
+    def abrir(self):
+        # fixa a data de todas as vendas para que as linhas esperadas sejam exatas
+        Venda.objects.update(data=self.DATA_VENDA)
+        return self.client.get(self.url)
+
+    def test_usa_o_template_de_vendas(self):
+        resposta = self.abrir()
+        self.assertTemplateUsed(resposta, 'estoque/venda_list.html')
+
+    def test_titulo_da_pagina(self):
+        resposta = self.abrir()
+        self.assertContains(resposta, '<h1>Histórico de vendas</h1>', html=True)
+
+    def test_voltar_leva_para_a_zeladoria(self):
+        resposta = self.abrir()
+        self.assertContains(resposta, f'href="{reverse("estoque:zeladoria_list")}">Voltar')
+
+    def test_mostra_a_venda_completa(self):
+        self.vender(nome_comprador='Pedro', ap_vaga='101D Vaga A', quant=10, notas='evento da Atlética')
+        resposta = self.abrir()
+        self.assertContains(resposta, '<tr><td>05/11/2026 14:30</td><td>Água 500ml</td><td>10</td>'
+                                      '<td>R$ 25,00</td><td>Pedro - 101D Vaga A</td>'
+                                      '<td>evento da Atlética</td><td>Alice</td></tr>', html=True)
+
+    def test_total_mostra_os_centavos(self):
+        self.vender(quant=3)
+        resposta = self.abrir()
+        self.assertContains(resposta, '<td>R$ 7,50</td>', html=True)
+
+    def test_total_usa_o_preco_da_venda_e_nao_o_atual(self):
+        self.vender(quant=10)
+        ItemZeladoria.objects.filter(pk=self.item.pk).update(preco_unitario=Decimal('3.00'))
+        resposta = self.abrir()
+        self.assertContains(resposta, '<td>R$ 25,00</td>', html=True)
+
+    def test_item_com_preco_zero_mostra_total_zero(self):
+        gratis = criar_item_zeladoria(nome='Panfleto', quant_total=5, preco_unitario=Decimal('0'))
+        self.vender(item=gratis, quant=2)
+        resposta = self.abrir()
+        self.assertContains(resposta, '<td>R$ 0,00</td>', html=True)
+
+    def test_comprador_aparece_como_foi_digitado(self):
+        # sem ajuste de maiúsculas nem de formato no local
+        self.vender(nome_comprador='pedro', ap_vaga='101d vaga a')
+        resposta = self.abrir()
+        self.assertContains(resposta, '<td>pedro - 101d vaga a</td>', html=True)
+
+    def test_venda_sem_notas_mostra_traco(self):
+        self.vender(notas='')
+        resposta = self.abrir()
+        self.assertContains(resposta, '<td>—</td>', html=True)
+
+    def test_notas_sao_escapadas(self):
+        # notas são texto livre: um HTML digitado aparece como texto, não é interpretado
+        self.vender(notas='<script>alert(1)</script>')
+        resposta = self.abrir()
+        self.assertContains(resposta, '&lt;script&gt;alert(1)&lt;/script&gt;')
+        self.assertNotContains(resposta, '<script>alert(1)</script>')
+
+    def test_registrada_por_mostra_quem_vendeu_e_nao_o_admin_logado(self):
+        self.vender(admin=criar_admin(email='bruno@test.com', nome='Bruno'))
+        resposta = self.abrir()
+        self.assertContains(resposta, '<td>Bruno</td>', html=True)
+        self.assertNotContains(resposta, '<td>Alice</td>', html=True)
+
+    def test_mais_recente_vem_primeiro(self):
+        self.vender(nome_comprador='Pedro')
+        self.vender(nome_comprador='Ana')
+        conteudo = self.abrir().content.decode()
+        self.assertLess(conteudo.index('Ana -'), conteudo.index('Pedro -'))
+
+    def test_mostra_vendas_de_todos_os_itens(self):
+        balde = criar_item_zeladoria(nome='Balde', quant_total=5, preco_unitario=Decimal('4.90'))
+        self.vender()
+        self.vender(item=balde)
+        resposta = self.abrir()
+        self.assertContains(resposta, '<td>Água 500ml</td>', html=True)
+        self.assertContains(resposta, '<td>Balde</td>', html=True)
+
+    def test_venda_de_item_removido_continua_aparecendo(self):
+        self.vender()
+        ZeladoriaService.delete_item(self.item, self.admin)
+        resposta = self.abrir()
+        self.assertContains(resposta, '<td>Água 500ml</td>', html=True)
+
+    def test_com_vendas_nao_mostra_aviso(self):
+        self.vender()
+        resposta = self.abrir()
+        self.assertNotContains(resposta, 'Nenhuma venda registrada.')
+
+    def test_sem_vendas_mostra_aviso(self):
+        resposta = self.abrir()
+        self.assertContains(resposta, 'Nenhuma venda registrada.')
