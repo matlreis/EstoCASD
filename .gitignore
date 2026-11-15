@@ -68,3 +68,6 @@ cython_debug/
 
 # Visual Studio Code
 .vscode/
+
+# Relatórios do teste cego por LLM
+tests_llm/reports/
