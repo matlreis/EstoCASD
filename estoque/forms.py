@@ -3,7 +3,7 @@ from datetime import timedelta
 from django import forms
 from django.utils import timezone
 
-from .models import ItemCASD, ItemZeladoria
+from .models import ItemCASD, ItemZeladoria, Venda
 from .services import PRAZO_MAX_DIAS
 
 
@@ -41,3 +41,14 @@ class EmprestimoForm(forms.Form):
 
 class DevolucaoForm(forms.Form):
     email = forms.EmailField()
+
+class VendaForm(forms.ModelForm):
+    quant = forms.IntegerField(label='Quantidade', min_value=1, initial=1)
+    
+    class Meta:
+        model = Venda
+        fields = ['nome_comprador', 'ap_vaga', 'quant', 'notas']
+        help_texts = {
+            'ap_vaga': 'Ex.: 105D Vaga A',
+            'notas': 'Opcional. Observações da venda.'
+        }

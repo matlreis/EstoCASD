@@ -26,6 +26,9 @@
                     <td class="acoes">
                         <a class="btn" href="{% url 'estoque:zeladoria_update' item.pk %}">Editar</a>
                         <a class="btn" href="{% url 'estoque:zeladoria_historico' item.pk %}">Histórico</a>
+                        {% if item.preco_unitario is not None %}
+                            <a class="btn" href="{% url 'estoque:zeladoria_venda' item.pk %}">Registrar venda</a>
+                        {% endif %}
                         <form method="post" action="{% url 'estoque:zeladoria_delete' item.pk %}"
                               data-confirm="Remover {{ item.nome }} da zeladoria?">
                             {% csrf_token %}

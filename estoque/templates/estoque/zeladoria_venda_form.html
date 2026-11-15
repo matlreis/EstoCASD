@@ -1,0 +1,19 @@
+{% extends 'base.html' %}
+
+{% block title %}Vender {{ item.nome }} | EstoCASD{% endblock %}
+
+{% block content %}
+    <h1>Registrar venda de {{ item.nome }}</h1>
+    <p>Estoque atual: {{ item.quant_total }}</p>
+    <p>Preço unitário: R$ {{ item.preco_unitario }}</p>
+
+    <form method="post" class="formulario">
+        {% csrf_token %}
+        {{ form.as_div }}
+
+        <div class="acoes">
+            <button type="submit" class="btn btn-primario">Registrar</button>
+            <a class="btn" href="{% url 'estoque:zeladoria_list' %}">Cancelar</a>
+        </div>
+    </form>
+{% endblock %}

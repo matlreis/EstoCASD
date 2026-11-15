@@ -6,7 +6,13 @@ from django.views.decorators.http import require_POST
 
 from core.utils import get_client_ip
 from .models import ItemCASD, Emprestimo, ItemZeladoria
-from .forms import ItemCASDForm, EmprestimoForm, DevolucaoForm, ItemZeladoriaForm
+from .forms import (
+    ItemCASDForm,
+    EmprestimoForm,
+    DevolucaoForm,
+    ItemZeladoriaForm,
+    VendaForm
+)
 from .services import EstoqueService, EmprestimoService, ZeladoriaService
 
 
@@ -177,3 +183,24 @@ def zeladoria_historico(request, pk):
     item = get_object_or_404(ItemZeladoria, pk=pk, is_active=True)
     context = {'item': item, 'logs': ZeladoriaService.historico(item)}
     return render(request, 'estoque/zeladoria_historico.html', context)
+
+def zeladoria_venda(request, pk):
+    item = get_object_or_404(ItemZeladoria, pk=pk, is_active=True)
+
+    if request.method == 'POST':
+        form = VendaForm(request.POST)
+        if form.is_valid():
+            try:
+                ip = get_client_ip(request)
+                ZeladoriaService.registrar_venda(item, form.cleaned_data, request.user, ip)
+            except ValidationError as e:
+                form.add_error(None, e)
+            else:
+                messages.success(request, 'Venda registrada.')
+                return redirect('estoque:zeladoria_list')
+
+    else:
+        form = VendaForm()
+
+    context = {'form': form, 'item': item}
+    return render(request, 'estoque/zeladoria_venda_form.html', context)

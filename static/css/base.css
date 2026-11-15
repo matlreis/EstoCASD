@@ -82,7 +82,8 @@ body {
 }
 
 .formulario input,
-.formulario select {
+.formulario select,
+.formulario textarea {
     width: 100%;
     padding: 5px;
     box-sizing: border-box;

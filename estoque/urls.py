@@ -17,4 +17,5 @@ urlpatterns = [
     path('zeladoria/<int:pk>/editar/', views.zeladoria_update, name='zeladoria_update'),
     path('zeladoria/<int:pk>/remover/', views.zeladoria_delete, name='zeladoria_delete'),
     path('zeladoria/<int:pk>/historico/', views.zeladoria_historico, name='zeladoria_historico'),
+    path('zeladoria/<int:pk>/venda/', views.zeladoria_venda, name='zeladoria_venda'),
 ]
