@@ -4,7 +4,13 @@
 
 {% block content %}
     <div class="titulo-pagina">
-        <h1>Controle de Estoque</h1>
+        <h1>
+        {% if user.is_authenticated %}
+            Estoque do CASD
+        {% else %}
+            Itens disponíveis
+        {% endif %}
+        </h1>
         {% if user.is_authenticated %}
             <a class="btn btn-primario" href="{% url 'estoque:item_create' %}">Adicionar item</a>
         {% endif %}

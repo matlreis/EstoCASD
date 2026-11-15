@@ -1014,7 +1014,7 @@ class VendaListViewTestCase(TestCase):
 
     def test_titulo_da_pagina(self):
         resposta = self.abrir()
-        self.assertContains(resposta, '<h1>Histórico de vendas</h1>', html=True)
+        self.assertContains(resposta, '<h1>Histórico de Vendas</h1>', html=True)
 
     def test_voltar_leva_para_a_zeladoria(self):
         resposta = self.abrir()
