@@ -187,12 +187,12 @@ class ZeladoriaService:
     @transaction.atomic
     def registrar_venda(item, dados, admin, ip=None):
         item = ItemZeladoria.objects.select_for_update().get(pk=item.pk)
+        if not item.is_active:
+            raise ValidationError('Este item foi removido.')
         if item.preco_unitario is None:
             raise ValidationError('Este item não está à venda.')
         if not 1 <= dados['quant'] <= item.quant_total:
             raise ValidationError(f'Quantidade indisponível. Em estoque: {item.quant_total}.')
-        if not item.is_active:
-            raise ValidationError('Este item foi removido.')
 
         quant_anterior = item.quant_total
         item.quant_total -= dados['quant']

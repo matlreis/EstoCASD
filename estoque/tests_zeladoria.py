@@ -258,6 +258,11 @@ class RegistrarVendaTestCase(TestCase):
         self.vender(quant=10)
         self.assertEqual(self.estoque(), 0)
 
+    def test_recusa_item_removido(self):
+        ItemZeladoria.objects.filter(pk=self.item.pk).update(is_active=False)
+        with self.assertRaisesMessage(ValidationError, 'Este item foi removido.'):
+            self.vender(quant=3)
+
     def test_recusa_vender_um_a_mais_que_o_estoque(self):
         with self.assertRaisesMessage(ValidationError, 'Quantidade indisponível. Em estoque: 10.'):
             self.vender(quant=11)
