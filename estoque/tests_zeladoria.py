@@ -7,7 +7,7 @@ from django.test import TestCase
 from django.urls import reverse
 from django.utils import timezone
 
-from .forms import ItemZeladoriaForm
+from .forms import ItemZeladoriaForm, VendaForm
 from .models import ItemCASD, ItemZeladoria, LogItemZeladoria, Venda
 from .services import ZeladoriaService
 from .helpers_tests import criar_admin
@@ -435,6 +435,57 @@ class ItemZeladoriaFormTestCase(TestCase):
         self.assertIn('Opcional', ItemZeladoriaForm().fields['preco_unitario'].help_text)
 
 
+class VendaFormTestCase(TestCase):
+    def test_aceita_dados_validos(self):
+        form = VendaForm(dados_venda(notas='evento da Atlética'))
+        self.assertTrue(form.is_valid())
+
+    def test_nome_local_e_quantidade_sao_obrigatorios(self):
+        form = VendaForm({})
+        self.assertEqual(set(form.errors), {'nome_comprador', 'ap_vaga', 'quant'})
+
+    def test_notas_sao_opcionais(self):
+        form = VendaForm(dados_venda(notas=''))
+        self.assertTrue(form.is_valid())
+
+    def test_local_aceita_texto_livre(self):
+        # sem validação de formato: só ajuda os gestores a identificar o morador
+        form = VendaForm(dados_venda(ap_vaga='quarto do fundo, 2º andar'))
+        self.assertTrue(form.is_valid())
+
+    def test_recusa_local_acima_do_limite_do_campo(self):
+        form = VendaForm(dados_venda(ap_vaga='x' * 51))
+        self.assertIn('ap_vaga', form.errors)
+
+    def test_recusa_quantidade_zero(self):
+        form = VendaForm(dados_venda(quant=0))
+        self.assertIn('quant', form.errors)
+
+    def test_recusa_quantidade_negativa(self):
+        form = VendaForm(dados_venda(quant=-1))
+        self.assertIn('quant', form.errors)
+
+    def test_recusa_quantidade_nao_numerica(self):
+        form = VendaForm(dados_venda(quant='dez'))
+        self.assertIn('quant', form.errors)
+
+    def test_campo_de_quantidade_tem_minimo_1_no_navegador(self):
+        self.assertIn('min="1"', str(VendaForm()['quant']))
+
+    def test_quantidade_comeca_em_1(self):
+        self.assertEqual(VendaForm().fields['quant'].initial, 1)
+
+    def test_preco_nao_e_campo_do_formulario(self):
+        # o preço é sempre copiado do item pelo service
+        self.assertNotIn('preco_unitario', VendaForm().fields)
+
+    def test_local_tem_texto_de_ajuda(self):
+        self.assertIn('Ex.:', VendaForm().fields['ap_vaga'].help_text)
+
+    def test_notas_tem_texto_de_ajuda(self):
+        self.assertIn('Opcional', VendaForm().fields['notas'].help_text)
+
+
 class ZeladoriaAnonimoTestCase(TestCase):
     """Todas as páginas da zeladoria são restritas aos admins."""
 
@@ -465,9 +516,19 @@ class ZeladoriaAnonimoTestCase(TestCase):
         url = reverse('estoque:zeladoria_historico', args=[self.item.pk])
         self.assertRedirecionaParaLogin(self.client.get(url), url)
 
+    def test_venda_redireciona(self):
+        url = reverse('estoque:zeladoria_venda', args=[self.item.pk])
+        self.assertRedirecionaParaLogin(self.client.get(url), url)
+
     def test_post_de_cadastro_nao_cria_item(self):
         self.client.post(reverse('estoque:zeladoria_create'), dados_zeladoria(nome='Balde', preco_unitario=''))
         self.assertFalse(ItemZeladoria.objects.filter(nome='Balde').exists())
+
+    def test_post_de_venda_nao_vende(self):
+        ItemZeladoria.objects.filter(pk=self.item.pk).update(preco_unitario=Decimal('2.50'))
+        self.client.post(reverse('estoque:zeladoria_venda', args=[self.item.pk]), dados_venda())
+        self.item.refresh_from_db()
+        self.assertEqual((Venda.objects.count(), self.item.quant_total), (0, 5))
 
     def test_post_de_remocao_nao_remove(self):
         self.client.post(reverse('estoque:zeladoria_delete', args=[self.item.pk]))
@@ -532,6 +593,22 @@ class ZeladoriaListViewTestCase(TestCase):
         item = criar_item_zeladoria()
         resposta = self.client.get(self.url)
         self.assertContains(resposta, f'href="{reverse("estoque:zeladoria_historico", args=[item.pk])}">Histórico')
+
+    def test_item_com_preco_tem_botao_de_venda(self):
+        item = criar_item_zeladoria(preco_unitario=Decimal('2.50'))
+        resposta = self.client.get(self.url)
+        self.assertContains(resposta, f'href="{reverse("estoque:zeladoria_venda", args=[item.pk])}">Registrar venda')
+
+    def test_item_sem_preco_nao_tem_botao_de_venda(self):
+        item = criar_item_zeladoria()
+        resposta = self.client.get(self.url)
+        self.assertNotContains(resposta, reverse('estoque:zeladoria_venda', args=[item.pk]))
+
+    def test_item_com_preco_zero_tem_botao_de_venda(self):
+        # "is not None" no template: preço 0 é um preço, o item está à venda
+        item = criar_item_zeladoria(preco_unitario=Decimal('0'))
+        resposta = self.client.get(self.url)
+        self.assertContains(resposta, reverse('estoque:zeladoria_venda', args=[item.pk]))
 
     def test_tem_botao_de_remocao_com_confirmacao(self):
         criar_item_zeladoria(nome='Vassoura')
@@ -772,3 +849,128 @@ class ZeladoriaHistoricoViewTestCase(TestCase):
         sem_logs = criar_item_zeladoria(nome='Balde')
         resposta = self.client.get(reverse('estoque:zeladoria_historico', args=[sem_logs.pk]))
         self.assertContains(resposta, 'Nenhum registro.')
+
+class ZeladoriaVendaViewTestCase(TestCase):
+    def setUp(self):
+        self.admin = criar_admin()
+        self.client.force_login(self.admin)
+        self.item = criar_item_zeladoria(nome='Água 500ml', quant_total=10, preco_unitario=Decimal('2.50'))
+        self.url = reverse('estoque:zeladoria_venda', args=[self.item.pk])
+
+    def post(self, url=None, **alteracoes):
+        return self.client.post(url or self.url, dados_venda(**alteracoes), REMOTE_ADDR='10.0.0.1')
+
+    def estoque(self):
+        return ItemZeladoria.objects.get(pk=self.item.pk).quant_total
+
+    def assertNaoVendeu(self):
+        self.assertFalse(Venda.objects.exists())
+        self.assertFalse(LogItemZeladoria.objects.exists())
+        self.assertEqual(self.estoque(), 10)
+
+    def test_usa_o_template_de_venda(self):
+        resposta = self.client.get(self.url)
+        self.assertTemplateUsed(resposta, 'estoque/zeladoria_venda_form.html')
+
+    def test_titulo_mostra_o_nome_do_item(self):
+        resposta = self.client.get(self.url)
+        self.assertContains(resposta, '<h1>Registrar venda de Água 500ml</h1>', html=True)
+
+    def test_mostra_o_preco_em_reais(self):
+        resposta = self.client.get(self.url)
+        self.assertContains(resposta, 'Preço unitário: R$ 2,50')
+
+    def test_mostra_o_estoque_atual(self):
+        resposta = self.client.get(self.url)
+        self.assertContains(resposta, 'Estoque atual: 10')
+
+    def test_mostra_o_texto_de_ajuda_do_local(self):
+        resposta = self.client.get(self.url)
+        self.assertContains(resposta, 'Ex.: 105D Vaga A')
+
+    def test_notas_aparecem_como_caixa_de_texto(self):
+        resposta = self.client.get(self.url)
+        self.assertContains(resposta, '<textarea name="notas"')
+
+    def test_cancelar_volta_para_a_zeladoria(self):
+        resposta = self.client.get(self.url)
+        self.assertContains(resposta, f'href="{reverse("estoque:zeladoria_list")}">Cancelar')
+
+    def test_item_inexistente_retorna_404(self):
+        resposta = self.client.get(reverse('estoque:zeladoria_venda', args=[self.item.pk + 1]))
+        self.assertEqual(resposta.status_code, 404)
+
+    def test_item_removido_retorna_404(self):
+        ItemZeladoria.objects.filter(pk=self.item.pk).update(is_active=False)
+        resposta = self.client.get(self.url)
+        self.assertEqual(resposta.status_code, 404)
+
+    def test_post_em_item_removido_retorna_404_e_nao_vende(self):
+        ItemZeladoria.objects.filter(pk=self.item.pk).update(is_active=False)
+        resposta = self.post()
+        self.assertEqual(resposta.status_code, 404)
+        self.assertNaoVendeu()
+
+    def test_cria_a_venda(self):
+        self.post(nome_comprador='Pedro', ap_vaga='101D Vaga A', quant=3, notas='evento da Atlética')
+        venda = Venda.objects.get()
+        self.assertEqual((venda.id_item, venda.nome_comprador, venda.ap_vaga, venda.quant, venda.notas),
+                         (self.item, 'Pedro', '101D Vaga A', 3, 'evento da Atlética'))
+
+    def test_reduz_o_estoque(self):
+        self.post(quant=3)
+        self.assertEqual(self.estoque(), 7)
+
+    def test_aceita_vender_todo_o_estoque(self):
+        resposta = self.post(quant=10)
+        self.assertRedirects(resposta, reverse('estoque:zeladoria_list'))
+        self.assertEqual(self.estoque(), 0)
+
+    def test_venda_guarda_o_admin_logado(self):
+        self.post()
+        self.assertEqual(Venda.objects.get().id_admin, self.admin)
+
+    def test_log_guarda_admin_logado_e_ip(self):
+        self.post()
+        log = LogItemZeladoria.objects.get()
+        self.assertEqual((log.event_type, log.id_admin, log.ip_aparelho), (EVENTO.VENDA, self.admin, '10.0.0.1'))
+
+    def test_preco_vem_do_item_e_nao_do_post(self):
+        # um preço enviado à mão no POST é ignorado: não é campo do formulário
+        self.post(preco_unitario='0.01')
+        self.assertEqual(Venda.objects.get().preco_unitario, Decimal('2.50'))
+
+    def test_sucesso_redireciona_para_a_zeladoria(self):
+        resposta = self.post()
+        self.assertRedirects(resposta, reverse('estoque:zeladoria_list'))
+
+    def test_sucesso_mostra_mensagem(self):
+        resposta = self.client.post(self.url, dados_venda(), follow=True)
+        self.assertContains(resposta, 'Venda registrada.')
+
+    def test_quantidade_acima_do_estoque_mostra_erro(self):
+        resposta = self.post(quant=11)
+        self.assertContains(resposta, 'Quantidade indisponível. Em estoque: 10.')
+
+    def test_quantidade_acima_do_estoque_nao_vende(self):
+        self.post(quant=11)
+        self.assertNaoVendeu()
+
+    def test_erro_mantem_os_dados_digitados(self):
+        resposta = self.post(nome_comprador='Pedro', quant=11)
+        self.assertContains(resposta, 'value="Pedro"')
+
+    def test_quantidade_zero_mostra_erro_no_campo(self):
+        resposta = self.post(quant=0)
+        self.assertContains(resposta, 'maior ou igual a 1')
+
+    def test_formulario_invalido_nao_vende(self):
+        self.post(nome_comprador='')
+        self.assertNaoVendeu()
+
+    def test_item_sem_preco_mostra_erro_do_service(self):
+        # o botão some, mas a URL pode ser aberta direto ou o preço apagado entre o GET e o POST
+        ItemZeladoria.objects.filter(pk=self.item.pk).update(preco_unitario=None)
+        resposta = self.post()
+        self.assertContains(resposta, 'Este item não está à venda.')
+        self.assertNaoVendeu()
