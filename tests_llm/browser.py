@@ -13,6 +13,18 @@ LIMITE_SNAPSHOT = 12000
 # tempo máximo de cada ação (ms)
 TEMPO_MAXIMO = 5000
 
+# O navegador bloqueia o envio de um formulário com campo inválido (ex.: quantidade abaixo do
+# mínimo) e mostra só um balão, que não entra no snapshot. Este script, rodado em toda página,
+# guarda a mensagem do balão para o ler_pagina repassar ao modelo.
+GUARDAR_AVISOS_JS = """
+addEventListener('invalid', (evento) => {
+    const campo = evento.target;
+    const rotulo = campo.labels?.[0]?.innerText ?? campo.name;
+    (window.avisosNavegador ??= []).push(`${rotulo} ${campo.validationMessage}`);
+}, true);
+"""
+LER_AVISOS_JS = '() => { const avisos = window.avisosNavegador ?? []; window.avisosNavegador = []; return avisos; }'
+
 # Schemas das ferramentas no formato de chat completions (compatível com OpenAI/OpenRouter)
 FERRAMENTAS = [
     {
@@ -83,6 +95,7 @@ class Navegador:
         page.set_default_timeout(TEMPO_MAXIMO)
         # aceitar diálogos do site por padrão
         page.on('dialog', self._aceitar_dialogo)
+        page.add_init_script(GUARDAR_AVISOS_JS)
 
     def _aceitar_dialogo(self, dialogo):
         self.dialogos.append(dialogo.message)
@@ -118,6 +131,9 @@ class Navegador:
         if self.dialogos:
             texto += f'Diálogo de confirmação aceito: {" | ".join(self.dialogos)}\n'
             self.dialogos.clear()
+        avisos = self.page.evaluate(LER_AVISOS_JS)
+        if avisos:
+            texto += f'Avisos do navegador (envio bloqueado): {" | ".join(avisos)}\n'
         return f'{texto}\n{snapshot}'
 
     def navegar(self, caminho):
