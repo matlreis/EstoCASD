@@ -60,3 +60,32 @@ pode ser consultada nos arquivos `tests.py` em cada aplicativo (`autenticacao`,
 `estoque`, `notificacao` e `core`). É possível, também, realizar os testes de 
 um aplicativo específico com `uv run manage.py test app`, em que `app` deve ser
 substituido por um dos aplicativos do sistema.
+
+## Teste cego por LLM
+
+Em `tests_llm`, um modelo de linguagem usa o site pelo navegador como um 
+cliente, sem conhecer o código-fonte, e relata o que encontrar. Esse teste não
+faz parte da suíte de testes normal e é ignorado por padrão.
+
+Execute `uv run playwright install chromium` para instalar o navegador. No 
+arquivo `.env`, defina o provedor e o modelo, que deve suportar *tool calling*.
+Qualquer API compatível com a da OpenAI serve (OpenRouter, Ollama, Gemini...):
+
+    LLM_BASE_URL=https://openrouter.ai/api/v1
+    LLM_API_KEY="your-api-key"
+    LLM_MODEL=provider/model-name:free
+
+Rode `RUN_LLM_TEST=1 uv run manage.py test tests_llm` para executar todas as 
+ações, ou `RUN_LLM_TEST=1 uv run manage.py test tests_llm.tests.TesteCegoLLM.test_...` 
+para executar uma em específico. O `test_ferramentas` valida o navegador sem 
+chamar o modelo. Defina `LLM_HEADED=1` para acompanhar a janela do navegador com
+as ações do modelo e `LLM_SLOW_MO=1` para desacelerá-las.
+
+Os achados são gravados em `tests_llm/reports/` e não reprovam o teste, pois a
+saída do modelo não é determinística: o teste só falha se o agente não concluir
+a ação no número definido de passos. Bugs verificados devem virar testes 
+determinísticos com `@expectedFailure`.
+
+> Nota: planos gratuitos limitam as requisições por minuto e por dia, e cada 
+ação gasta até 30 requisições. Esses provedores podem registrar os prompts, 
+então use apenas dados fictícios.
