@@ -82,13 +82,17 @@ body {
 
 .tabela {
     width: 100%;
-    border-collapse: collapse;
+    border-collapse: separate;
+    border-spacing: 0;
+    border-top: 1px solid var(--cor-borda);
+    border-left: 1px solid var(--cor-borda);
     margin-bottom: 30px;
 }
 
 .tabela th,
 .tabela td {
-    border: 1px solid var(--cor-borda);
+    border-right: 1px solid var(--cor-borda);
+    border-bottom: 1px solid var(--cor-borda);
     padding: 8px;
     text-align: left;
 }
