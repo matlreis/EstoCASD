@@ -23,16 +23,20 @@ FERRAMENTAS_AGENTE = [
     {
         'type': 'function',
         'function': {
-            'name': 'registrar_achado',
+            'name': 'registrar_problema',
             'description': 'Registra um problema encontrado no site.',
             'parameters': {
                 'type': 'object',
                 'properties': {
-                    'gravidade': {'type': 'string', 'enum': ['baixa', 'media', 'alta']},
+                    'gravidade': {
+                        'type': 'string', 'enum': ['baixa', 'media', 'alta'],
+                        'description': 'alta: site aceita algo proibido ou guarda dado errado; '
+                                       'media: erro do servidor ou função inacessível; baixa: texto errado ou enganoso',
+                    },
                     'titulo': {'type': 'string', 'description': 'Resumo do problema em uma frase'},
                     'passos': {'type': 'string', 'description': 'O que você fez até o problema aparecer'},
                     'esperado': {'type': 'string', 'description': 'O que deveria ter acontecido'},
-                    'obtido': {'type': 'string', 'description': 'O que aconteceu de fato'},
+                    'obtido': {'type': 'string', 'description': 'O que aconteceu, com o texto exato da página'},
                 },
                 'required': ['gravidade', 'titulo', 'passos', 'esperado', 'obtido'],
             },
@@ -61,10 +65,9 @@ Como trabalhar:
 cada página.
 - Cumpra a ação como um usuário real faria e tente também o que um usuário distraído ou \
 mal-intencionado tentaria.
-- Sempre que algo parecer errado, chame registrar_achado: erro do servidor, mensagem confusa ou \
-ausente, dado incorreto, ação permitida que deveria ser proibida (ou o contrário), regra do CASD \
-desrespeitada. Não registre o mesmo problema duas vezes.
-- Registre apenas o que você observou na página.
+- Um achado é: erro do servidor ou página quebrada; resultado que contradiz as regras do CASD; \
+pedido recusado sem explicar o motivo. 
+- Registre cada achado uma vez, assim que o observar. Sugestões de melhoria vão no resumo.
 - Ao terminar a ação, ou se não houver mais o que testar, chame concluir com um resumo.
 
 Hoje é {hoje}.
@@ -122,7 +125,7 @@ def executar_acao(navegador, acao, contexto):
 
             if argumentos is None:
                 retorno['content'] = 'Erro: os argumentos não são um JSON válido.'
-            elif nome == 'registrar_achado':
+            elif nome == 'registrar_problema':
                 resultado.achados.append(argumentos)
                 retorno['content'] = 'Achado registrado.'
             elif nome == 'concluir':
