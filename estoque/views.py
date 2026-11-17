@@ -3,6 +3,7 @@ from django.contrib.auth.decorators import login_not_required
 from django.core.exceptions import ValidationError
 from django.shortcuts import get_object_or_404, render, redirect
 from django.views.decorators.http import require_POST
+from django.core.paginator import Paginator
 
 from core.utils import get_client_ip
 from .models import ItemCASD, Emprestimo, ItemZeladoria
@@ -16,9 +17,20 @@ from .forms import (
 from .services import EstoqueService, EmprestimoService, ZeladoriaService
 
 
+# @login_not_required
+# def item_list(request):
+#     itens = EstoqueService.list_items()
+#     context = {'itens': itens}
+#     return render(request, 'estoque/item_list.html', context)
+
+
 @login_not_required
 def item_list(request):
-    itens = EstoqueService.list_items()
+    lista_itens = EstoqueService.list_items()
+    paginator = Paginator(lista_itens, 10)
+    page_number = request.GET.get('page')
+    itens = paginator.get_page(page_number)
+
     context = {'itens': itens}
     return render(request, 'estoque/item_list.html', context)
 

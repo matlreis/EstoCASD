@@ -207,3 +207,33 @@ body {
 .mensagem-error {
     background: var(--cor-erro-fundo);
 }
+
+.paginacao {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 6px;
+    margin-top: 20px;
+}
+
+.pagina-link {
+    padding: 6px 12px;
+    border: 1px solid var(--cor-borda);
+    border-radius: 4px;
+    background-color: #ffffff;
+    color: var(--cor-texto);
+    text-decoration: none;
+    font-size: 0.9rem;
+    font-weight: 500;
+}
+
+.pagina-link:hover {
+    background-color: #f0f0f0;
+}
+
+.pagina-link.ativa {
+    background-color: #ffffff;
+    color: var(--cor-primaria);
+    border-color: #121212;
+    font-weight: 700;
+}
