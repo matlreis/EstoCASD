@@ -3,7 +3,7 @@
     --cor-fundo: #fff;
     --cor-painel: #f0f0f0;
     --cor-borda: #444;
-    --cor-primaria: #1d4ed8;
+    --cor-primaria: #f5c400;
     --cor-perigo: #b91c1c;
     --cor-sucesso-fundo: #dcfce7;
     --cor-erro-fundo: #fee2e2;
@@ -149,17 +149,29 @@ body {
     padding: 6px 12px;
     border: 1px solid var(--cor-borda);
     border-radius: 4px;
-    background: var(--cor-fundo);
+    background: #fff;
     color: var(--cor-texto);
-    font: inherit;
     text-decoration: none;
+    font: inherit;
     cursor: pointer;
 }
 
+.btn:hover {
+    background: #f0f0f0;
+}
+
 .btn-primario {
-    border-color: var(--cor-primaria);
-    background: var(--cor-primaria);
-    color: #fff;
+    background-color: var(--cor-primaria);
+    color: #121212;
+    border-color: #d4a900;
+    font-weight: 600;
+    padding: 8px 16px;
+}
+
+.btn-primario:hover {
+    background-color: #121212;
+    color: #f5c400;
+    border-color: #121212;
 }
 
 .btn-perigo {
