@@ -7,8 +7,8 @@ from django.urls import reverse
 
 from .forms import EmprestimoForm
 from .models import Emprestimo, ItemCASD, LogEmprestimo, Morador
-from .services import PRAZO_MAX_DIAS, EmprestimoService
-from .helpers_tests import HOJE, FIXAR_HOJE, AT, DS, DE, criar_emprestimo, criar_admin, status_atual
+from .services import EmprestimoService
+from .helpers_tests import HOJE, PRAZO_LIMITE, FIXAR_HOJE, AT, DS, DE, criar_emprestimo, criar_admin, status_atual
 
 
 def dados_emprestimo(**alteracoes):
@@ -118,12 +118,12 @@ class DataDevolucaoTestCase(TestCase):
             self.criar_com_data(3)
 
     def test_aceita_o_ultimo_dia_do_prazo_maximo(self):
-        emprestimo = self.criar_com_data(PRAZO_MAX_DIAS)
-        self.assertEqual(emprestimo.limit_date, HOJE + timedelta(days=PRAZO_MAX_DIAS))
+        emprestimo = self.criar_com_data(7)
+        self.assertEqual(emprestimo.limit_date, PRAZO_LIMITE)
 
     def test_recusa_um_dia_alem_do_prazo_maximo(self):
-        with self.assertRaisesMessage(ValidationError, f'{PRAZO_MAX_DIAS} dias'):
-            self.criar_com_data(PRAZO_MAX_DIAS + 1)
+        with self.assertRaisesMessage(ValidationError, '5 dias úteis'):
+            self.criar_com_data(8)
 
     def test_data_no_passado_tem_mensagem_propria(self):
         with self.assertRaisesMessage(ValidationError, 'passado'):
@@ -225,7 +225,7 @@ class EmprestimoFormTestCase(TestCase):
 
     def test_data_maxima_e_o_fim_do_prazo(self):
         widget = EmprestimoForm().fields['limit_date'].widget
-        self.assertEqual(widget.attrs['max'], (HOJE + timedelta(days=PRAZO_MAX_DIAS)).isoformat())
+        self.assertEqual(widget.attrs['max'], PRAZO_LIMITE.isoformat())
 
     def test_limites_sao_calculados_a_cada_formulario(self):
         # se fossem calculados no corpo da classe, ficariam presos ao dia em que o servidor subiu

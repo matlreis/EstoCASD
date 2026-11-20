@@ -11,7 +11,7 @@ from django.urls import reverse
 
 from .helpers_tests import AT, DE, DS, FIXAR_HOJE, HOJE, criar_admin
 from .models import Emprestimo, ItemCASD, ItemZeladoria, LogEmprestimo, Morador
-from .services import PRAZO_MAX_DIAS, ZeladoriaService
+from .services import ZeladoriaService
 
 
 class FluxoTestCase(TestCase):
@@ -395,15 +395,15 @@ class DataDeDevolucaoInvalidaTestCase(FluxoTestCase):
         self.assertIn('A data de devolução não pode cair no fim de semana.', resposta.context['form'].non_field_errors())
 
     def test_alem_do_prazo_maximo_nao_cria_emprestimo(self):
-        self.emprestar(self.item, dias=PRAZO_MAX_DIAS + 1)
+        self.emprestar(self.item, dias=8)  # sexta-feira depois do último dia do prazo
         self.assertFalse(Emprestimo.objects.exists())
 
     def test_alem_do_prazo_maximo_informa_o_motivo(self):
-        resposta = self.emprestar(self.item, dias=PRAZO_MAX_DIAS + 1)
-        self.assertIn(f'A data de devolução não pode passar de {PRAZO_MAX_DIAS} dias.', resposta.context['form'].non_field_errors())
+        resposta = self.emprestar(self.item, dias=8)
+        self.assertIn('A data de devolução não pode passar de 5 dias úteis.', resposta.context['form'].non_field_errors())
 
     def test_ultimo_dia_do_prazo_maximo_e_aceito(self):
-        self.emprestar(self.item, dias=PRAZO_MAX_DIAS)
+        self.emprestar(self.item, dias=7)  # quinta-feira, 5º dia útil depois de HOJE
         self.assertEqual(Emprestimo.objects.count(), 1)
 
     def test_recusa_nao_cadastra_o_morador(self):

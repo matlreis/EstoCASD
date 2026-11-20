@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, timedelta
 from unittest import mock
 
 from autenticacao.models import Admin
@@ -6,9 +6,11 @@ from .models import Emprestimo
 
 
 # "Hoje" fixo, para os testes não dependerem do dia em que rodam. Uma quinta-feira
-# foi escolhida porque HOJE + 60 e HOJE + 61 caem em dias úteis, então os testes do
-# prazo máximo não esbarram na regra do fim de semana.
+# foi escolhida porque o último dia do prazo máximo (5 dias úteis) cai em outra quinta,
+# e o dia seguinte é uma sexta, então os testes do prazo máximo não esbarram na regra
+# do fim de semana.
 HOJE = date(2026, 11, 5)  # quinta-feira
+PRAZO_LIMITE = HOJE + timedelta(days=7)  # quinta-feira, 5º dia útil depois de HOJE
 FIXAR_HOJE = mock.patch('django.utils.timezone.localdate', new=lambda: HOJE)
 
 

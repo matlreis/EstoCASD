@@ -1,5 +1,6 @@
+from datetime import date
 from django.test import RequestFactory, SimpleTestCase
-from .utils import get_client_ip
+from .utils import get_client_ip, somar_dias_uteis
 
 
 class GetClientIpTestCase(SimpleTestCase):
@@ -45,3 +46,33 @@ class GetClientIpTestCase(SimpleTestCase):
         del request.META['REMOTE_ADDR']
         ip = get_client_ip(request)
         self.assertIsNone(ip)
+
+
+class SomarDiasUteisTestCase(SimpleTestCase):
+    def test_de_segunda_soma_um_dia_util_e_vai_para_terca(self):
+        resultado = somar_dias_uteis(date(2026, 11, 2), 1)
+        self.assertEqual(resultado, date(2026, 11, 3))
+
+    def test_de_sexta_soma_um_dia_util_e_vai_para_segunda(self):
+        resultado = somar_dias_uteis(date(2026, 11, 6), 1)
+        self.assertEqual(resultado, date(2026, 11, 9))
+
+    def test_de_sabado_soma_um_dia_util_e_vai_para_segunda(self):
+        resultado = somar_dias_uteis(date(2026, 11, 7), 1)
+        self.assertEqual(resultado, date(2026, 11, 9))
+
+    def test_de_domingo_soma_um_dia_util_e_vai_para_segunda(self):
+        resultado = somar_dias_uteis(date(2026, 11, 8), 1)
+        self.assertEqual(resultado, date(2026, 11, 9))
+
+    def test_cinco_dias_uteis_a_partir_de_quinta_caem_na_quinta_seguinte(self):
+        resultado = somar_dias_uteis(date(2026, 11, 5), 5)
+        self.assertEqual(resultado, date(2026, 11, 12))
+
+    def test_cinco_dias_uteis_a_partir_de_sabado_caem_na_sexta_seguinte(self):
+        resultado = somar_dias_uteis(date(2026, 11, 7), 5)
+        self.assertEqual(resultado, date(2026, 11, 13))
+
+    def test_zero_dias_uteis_devolve_a_mesma_data(self):
+        resultado = somar_dias_uteis(date(2026, 11, 7), 0)
+        self.assertEqual(resultado, date(2026, 11, 7))
