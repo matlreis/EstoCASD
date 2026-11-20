@@ -22,6 +22,12 @@ def get_client_ip(request):
     remote = request.META.get('REMOTE_ADDR')
     return remote if remote and _valid_ip(remote) else None
 
+def proximo_dia_util(data):
+    # a própria data, se for dia útil; senão, a segunda-feira seguinte
+    while data.weekday() >= 5:
+        data += timedelta(days=1)
+    return data
+
 def somar_dias_uteis(data, dias):
     # dias úteis são de segunda a sexta; feriados não são considerados
     while dias > 0:

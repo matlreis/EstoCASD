@@ -2,7 +2,7 @@ from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.utils import timezone
 
-from core.utils import somar_dias_uteis
+from core.utils import proximo_dia_util, somar_dias_uteis
 from .models import (
     ItemCASD,
     Morador,
@@ -14,8 +14,10 @@ from .models import (
 )
 
 
-# Prazo máximo de devolução do item do CASD
+# Prazo máximo de devolução do item do CASD, em dias úteis a partir da retirada
 PRAZO_MAX_DIAS_UTEIS = 5
+# Antecedência máxima para agendar a retirada, em dias úteis a partir de hoje
+ANTECEDENCIA_MAX_DIAS_UTEIS = 5
 
 class EstoqueService:
 
@@ -65,11 +67,27 @@ class EmprestimoService:
         if not 1 <= quant <= item.quant_disponivel:
             raise ValidationError(f"Quantidade indisponível. Disponível: {item.quant_disponivel}.")
 
+        hoje = timezone.localdate()
+        # sem data de retirada, vale a de hoje (ou a segunda-feira, se hoje for fim de semana)
+        start_date = dados.get('start_date') or proximo_dia_util(hoje)
+        if start_date < hoje:
+            raise ValidationError("A data de retirada não pode estar no passado.")
+        if start_date > somar_dias_uteis(hoje, ANTECEDENCIA_MAX_DIAS_UTEIS):
+            raise ValidationError(
+                f"A retirada só pode ser agendada com até {ANTECEDENCIA_MAX_DIAS_UTEIS} dias úteis de antecedência."
+            )
+        if start_date.weekday() >= 5:
+            raise ValidationError("A data de retirada não pode cair no fim de semana.")
+
         limit_date = dados['limit_date']
-        if limit_date < timezone.localdate():
+        if limit_date < hoje:
             raise ValidationError("A data de devolução não pode estar no passado.")
-        if limit_date > somar_dias_uteis(timezone.localdate(), PRAZO_MAX_DIAS_UTEIS):
-            raise ValidationError(f"A data de devolução não pode passar de {PRAZO_MAX_DIAS_UTEIS} dias úteis.")
+        if limit_date < start_date:
+            raise ValidationError("A data de devolução não pode ser anterior à data de retirada.")
+        if limit_date > somar_dias_uteis(start_date, PRAZO_MAX_DIAS_UTEIS):
+            raise ValidationError(
+                f"A data de devolução não pode passar de {PRAZO_MAX_DIAS_UTEIS} dias úteis depois da retirada."
+            )
         # proibir prazo de entrega no final de semana (5 = sábado, 6 = domingo)
         if limit_date.weekday() >= 5:
             raise ValidationError("A data de devolução não pode cair no fim de semana.")
@@ -83,7 +101,7 @@ class EmprestimoService:
         item.save(update_fields=['quant_emprestada'])
 
         emprestimo = Emprestimo.objects.create(
-            id_item=item, id_morador=morador, quant=quant, limit_date=limit_date,
+            id_item=item, id_morador=morador, quant=quant, start_date=start_date, limit_date=limit_date,
         )
         LogEmprestimo.objects.create(
             id_emprestimo=emprestimo, ip_aparelho=ip, event_type=LogEmprestimo.Evento.CRIADO,
