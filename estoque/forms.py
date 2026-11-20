@@ -1,10 +1,9 @@
-from datetime import timedelta
-
 from django import forms
 from django.utils import timezone
 
+from core.utils import somar_dias_uteis
 from .models import ItemCASD, ItemZeladoria, Venda
-from .services import PRAZO_MAX_DIAS
+from .services import PRAZO_MAX_DIAS_UTEIS
 
 
 class ItemCASDForm(forms.ModelForm):
@@ -27,7 +26,7 @@ class EmprestimoForm(forms.Form):
         hoje = timezone.localdate()
         self.fields['limit_date'].widget.attrs.update({
             'min': hoje.isoformat(),
-            'max': (hoje + timedelta(days=PRAZO_MAX_DIAS)).isoformat(),
+            'max': somar_dias_uteis(hoje, PRAZO_MAX_DIAS_UTEIS).isoformat(),
         })
 
     nome = forms.CharField(max_length=255)

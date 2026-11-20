@@ -1,4 +1,5 @@
 import ipaddress
+from datetime import timedelta
 
 
 def _valid_ip(ip):
@@ -20,3 +21,11 @@ def get_client_ip(request):
             return ip
     remote = request.META.get('REMOTE_ADDR')
     return remote if remote and _valid_ip(remote) else None
+
+def somar_dias_uteis(data, dias):
+    # dias úteis são de segunda a sexta; feriados não são considerados
+    while dias > 0:
+        data += timedelta(days=1)
+        if data.weekday() < 5:
+            dias -= 1
+    return data

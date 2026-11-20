@@ -4,7 +4,7 @@ Os textos descrevem objetivos e regras como o CASD os conhece, nunca detalhes de
 Todos os dados são fictícios, porque os prompts são enviados a um provedor externo.
 """
 
-from estoque.services import PRAZO_MAX_DIAS
+from estoque.services import PRAZO_MAX_DIAS_UTEIS
 
 
 # conta semeada pelo tests.py e usada nas ações de administrador
@@ -20,8 +20,8 @@ devolveu, sem precisar de conta.
 - Para pegar um empréstimo, o morador informa nome, apartamento e e-mail. O e-mail identifica a \
 pessoa, sem diferenciar maiúsculas de minúsculas.
 - A quantidade emprestada é de pelo menos 1 e no máximo a quantidade disponível do item.
-- A devolução prevista vai de hoje até {PRAZO_MAX_DIAS} dias e precisa cair em dia útil, porque \
-o CASD não abre no fim de semana.
+- A devolução prevista vai de hoje até {PRAZO_MAX_DIAS_UTEIS} dias úteis e precisa cair em dia \
+útil, porque o CASD não abre no fim de semana.
 - A devolução só vale quando um administrador a confirma. O morador pode avisar antes que \
 devolveu, mas, até a confirmação, o item continua contando como emprestado.
 - Um empréstimo está atrasado quando o prazo passou e o morador não avisou a devolução. Os \

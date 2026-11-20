@@ -1,9 +1,8 @@
-from datetime import timedelta
-
 from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.utils import timezone
 
+from core.utils import somar_dias_uteis
 from .models import (
     ItemCASD,
     Morador,
@@ -16,7 +15,7 @@ from .models import (
 
 
 # Prazo máximo de devolução do item do CASD
-PRAZO_MAX_DIAS = 60
+PRAZO_MAX_DIAS_UTEIS = 5
 
 class EstoqueService:
 
@@ -69,8 +68,8 @@ class EmprestimoService:
         limit_date = dados['limit_date']
         if limit_date < timezone.localdate():
             raise ValidationError("A data de devolução não pode estar no passado.")
-        if limit_date > timezone.localdate() + timedelta(days=PRAZO_MAX_DIAS):
-            raise ValidationError(f"A data de devolução não pode passar de {PRAZO_MAX_DIAS} dias.")
+        if limit_date > somar_dias_uteis(timezone.localdate(), PRAZO_MAX_DIAS_UTEIS):
+            raise ValidationError(f"A data de devolução não pode passar de {PRAZO_MAX_DIAS_UTEIS} dias úteis.")
         # proibir prazo de entrega no final de semana (5 = sábado, 6 = domingo)
         if limit_date.weekday() >= 5:
             raise ValidationError("A data de devolução não pode cair no fim de semana.")
