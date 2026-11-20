@@ -75,6 +75,10 @@ class Morador(models.Model):
         return f'{self.nome} ({self.ap})'
 
 
+def data_de_hoje():
+    return timezone.localdate()
+
+
 class EmprestimoQuerySet(models.QuerySet):
     def ativos(self):
         return self.exclude(status=Emprestimo.StatusEmprestimo.DE)
@@ -95,6 +99,7 @@ class Emprestimo(models.Model):
 
     status = models.CharField(max_length=20, choices=StatusEmprestimo.choices, default=StatusEmprestimo.AT)
 
+    start_date = models.DateField('retirada prevista', default=data_de_hoje)
     limit_date = models.DateField('devolução prevista')
     quant = models.PositiveIntegerField('quantidade', default=1)
 
