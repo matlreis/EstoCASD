@@ -287,18 +287,54 @@ class RegistrarVendaTestCase(TestCase):
         venda = self.vender(item=gratis, quant=2)
         self.assertEqual(venda.total, Decimal('0'))
 
-    def test_venda_recusada_nao_deixa_rastro(self):
+    def test_recusa_acima_do_estoque_nao_cria_venda(self):
+        with self.assertRaises(ValidationError):
+            self.vender(quant=11)
+        self.assertFalse(Venda.objects.exists())
+
+    def test_recusa_acima_do_estoque_nao_cria_log(self):
+        with self.assertRaises(ValidationError):
+            self.vender(quant=11)
+        self.assertFalse(LogItemZeladoria.objects.exists())
+
+    def test_recusa_acima_do_estoque_nao_altera_o_estoque(self):
+        with self.assertRaises(ValidationError):
+            self.vender(quant=11)
+        self.assertEqual(self.estoque(), 10)
+
+    def test_recusa_quantidade_zero_nao_cria_venda(self):
+        with self.assertRaises(ValidationError):
+            self.vender(quant=0)
+        self.assertFalse(Venda.objects.exists())
+
+    def test_recusa_quantidade_zero_nao_cria_log(self):
+        with self.assertRaises(ValidationError):
+            self.vender(quant=0)
+        self.assertFalse(LogItemZeladoria.objects.exists())
+
+    def test_recusa_quantidade_zero_nao_altera_o_estoque(self):
+        with self.assertRaises(ValidationError):
+            self.vender(quant=0)
+        self.assertEqual(self.estoque(), 10)
+
+    def test_recusa_item_sem_preco_nao_cria_venda(self):
         sem_preco = criar_item_zeladoria(nome='Vassoura', quant_total=3)
-        casos = [('acima do estoque', self.item, 11), ('quantidade zero', self.item, 0),
-                 ('item sem preço', sem_preco, 1)]
-        for caso, item, quant in casos:
-            with self.subTest(caso):
-                with self.assertRaises(ValidationError):
-                    self.vender(item=item, quant=quant)
-                item.refresh_from_db()
-                self.assertEqual(item.quant_total, 10 if item == self.item else 3)
-                self.assertFalse(Venda.objects.exists())
-                self.assertFalse(LogItemZeladoria.objects.exists())
+        with self.assertRaises(ValidationError):
+            self.vender(item=sem_preco)
+        self.assertFalse(Venda.objects.exists())
+
+    def test_recusa_item_sem_preco_nao_cria_log(self):
+        sem_preco = criar_item_zeladoria(nome='Vassoura', quant_total=3)
+        with self.assertRaises(ValidationError):
+            self.vender(item=sem_preco)
+        self.assertFalse(LogItemZeladoria.objects.exists())
+
+    def test_recusa_item_sem_preco_nao_altera_o_estoque(self):
+        sem_preco = criar_item_zeladoria(nome='Vassoura', quant_total=3)
+        with self.assertRaises(ValidationError):
+            self.vender(item=sem_preco)
+        sem_preco.refresh_from_db()
+        self.assertEqual(sem_preco.quant_total, 3)
 
     def test_mudar_o_preco_depois_nao_altera_a_venda(self):
         venda = self.vender(quant=2)
@@ -833,10 +869,14 @@ class ZeladoriaHistoricoViewTestCase(TestCase):
         self.assertContains(resposta, '<tr><td>05/11/2026 14:30</td><td>Quantidade total alterada</td>'
                                       '<td>5</td><td>0</td><td>Alice</td></tr>', html=True)
 
-    def test_cada_linha_mostra_o_admin_do_evento(self):
+    def test_linha_de_alteracao_mostra_o_admin_que_alterou(self):
         self.alterar_total(3, admin=criar_admin(email='bruno@test.com', nome='Bruno'))
         resposta = self.abrir()
         self.assertContains(resposta, '<td>Bruno</td>', count=1, html=True)
+
+    def test_linha_de_criacao_mostra_o_admin_que_criou(self):
+        self.alterar_total(3, admin=criar_admin(email='bruno@test.com', nome='Bruno'))
+        resposta = self.abrir()
         self.assertContains(resposta, '<td>Alice</td>', count=1, html=True)
 
     def test_mais_recente_vem_primeiro(self):
@@ -870,11 +910,6 @@ class ZeladoriaVendaViewTestCase(TestCase):
 
     def estoque(self):
         return ItemZeladoria.objects.get(pk=self.item.pk).quant_total
-
-    def assertNaoVendeu(self):
-        self.assertFalse(Venda.objects.exists())
-        self.assertFalse(LogItemZeladoria.objects.exists())
-        self.assertEqual(self.estoque(), 10)
 
     def test_usa_o_template_de_venda(self):
         resposta = self.client.get(self.url)
@@ -913,11 +948,25 @@ class ZeladoriaVendaViewTestCase(TestCase):
         resposta = self.client.get(self.url)
         self.assertEqual(resposta.status_code, 404)
 
-    def test_post_em_item_removido_retorna_404_e_nao_vende(self):
+    def test_post_em_item_removido_retorna_404(self):
         ItemZeladoria.objects.filter(pk=self.item.pk).update(is_active=False)
         resposta = self.post()
         self.assertEqual(resposta.status_code, 404)
-        self.assertNaoVendeu()
+
+    def test_post_em_item_removido_nao_cria_venda(self):
+        ItemZeladoria.objects.filter(pk=self.item.pk).update(is_active=False)
+        self.post()
+        self.assertFalse(Venda.objects.exists())
+
+    def test_post_em_item_removido_nao_cria_log(self):
+        ItemZeladoria.objects.filter(pk=self.item.pk).update(is_active=False)
+        self.post()
+        self.assertFalse(LogItemZeladoria.objects.exists())
+
+    def test_post_em_item_removido_nao_altera_o_estoque(self):
+        ItemZeladoria.objects.filter(pk=self.item.pk).update(is_active=False)
+        self.post()
+        self.assertEqual(self.estoque(), 10)
 
     def test_item_sem_preco_retorna_404(self):
         # o botão some na lista, mas a URL ainda pode ser aberta direto
@@ -925,12 +974,26 @@ class ZeladoriaVendaViewTestCase(TestCase):
         resposta = self.client.get(self.url)
         self.assertEqual(resposta.status_code, 404)
 
-    def test_post_em_item_sem_preco_retorna_404_e_nao_vende(self):
+    def test_post_em_item_sem_preco_retorna_404(self):
         # o preço pode ter sido apagado entre o GET e o POST
         ItemZeladoria.objects.filter(pk=self.item.pk).update(preco_unitario=None)
         resposta = self.post()
         self.assertEqual(resposta.status_code, 404)
-        self.assertNaoVendeu()
+
+    def test_post_em_item_sem_preco_nao_cria_venda(self):
+        ItemZeladoria.objects.filter(pk=self.item.pk).update(preco_unitario=None)
+        self.post()
+        self.assertFalse(Venda.objects.exists())
+
+    def test_post_em_item_sem_preco_nao_cria_log(self):
+        ItemZeladoria.objects.filter(pk=self.item.pk).update(preco_unitario=None)
+        self.post()
+        self.assertFalse(LogItemZeladoria.objects.exists())
+
+    def test_post_em_item_sem_preco_nao_altera_o_estoque(self):
+        ItemZeladoria.objects.filter(pk=self.item.pk).update(preco_unitario=None)
+        self.post()
+        self.assertEqual(self.estoque(), 10)
 
     def test_cria_a_venda(self):
         self.post(nome_comprador='Pedro', ap_vaga='101D Vaga A', quant=3, notas='evento da Atlética')
@@ -943,9 +1006,12 @@ class ZeladoriaVendaViewTestCase(TestCase):
         self.assertEqual(self.estoque(), 7)
 
     def test_aceita_vender_todo_o_estoque(self):
+        self.post(quant=10)
+        self.assertEqual(self.estoque(), 0)
+
+    def test_vender_todo_o_estoque_redireciona_para_a_zeladoria(self):
         resposta = self.post(quant=10)
         self.assertRedirects(resposta, reverse('estoque:zeladoria_list'))
-        self.assertEqual(self.estoque(), 0)
 
     def test_venda_guarda_o_admin_logado(self):
         self.post()
@@ -973,9 +1039,17 @@ class ZeladoriaVendaViewTestCase(TestCase):
         resposta = self.post(quant=11)
         self.assertContains(resposta, 'Quantidade indisponível. Em estoque: 10.')
 
-    def test_quantidade_acima_do_estoque_nao_vende(self):
+    def test_quantidade_acima_do_estoque_nao_cria_venda(self):
         self.post(quant=11)
-        self.assertNaoVendeu()
+        self.assertFalse(Venda.objects.exists())
+
+    def test_quantidade_acima_do_estoque_nao_cria_log(self):
+        self.post(quant=11)
+        self.assertFalse(LogItemZeladoria.objects.exists())
+
+    def test_quantidade_acima_do_estoque_nao_altera_o_estoque(self):
+        self.post(quant=11)
+        self.assertEqual(self.estoque(), 10)
 
     def test_erro_mantem_os_dados_digitados(self):
         resposta = self.post(nome_comprador='Pedro', quant=11)
@@ -985,9 +1059,17 @@ class ZeladoriaVendaViewTestCase(TestCase):
         resposta = self.post(quant=0)
         self.assertContains(resposta, 'maior ou igual a 1')
 
-    def test_formulario_invalido_nao_vende(self):
+    def test_formulario_invalido_nao_cria_venda(self):
         self.post(nome_comprador='')
-        self.assertNaoVendeu()
+        self.assertFalse(Venda.objects.exists())
+
+    def test_formulario_invalido_nao_cria_log(self):
+        self.post(nome_comprador='')
+        self.assertFalse(LogItemZeladoria.objects.exists())
+
+    def test_formulario_invalido_nao_altera_o_estoque(self):
+        self.post(nome_comprador='')
+        self.assertEqual(self.estoque(), 10)
 
 
 class VendaListViewTestCase(TestCase):
@@ -1055,17 +1137,25 @@ class VendaListViewTestCase(TestCase):
         resposta = self.abrir()
         self.assertContains(resposta, '<td>—</td>', html=True)
 
-    def test_notas_sao_escapadas(self):
+    def test_notas_aparecem_como_texto_escapado(self):
         # notas são texto livre: um HTML digitado aparece como texto, não é interpretado
         self.vender(notas='<script>alert(1)</script>')
         resposta = self.abrir()
         self.assertContains(resposta, '&lt;script&gt;alert(1)&lt;/script&gt;')
+
+    def test_notas_nao_viram_html_na_pagina(self):
+        self.vender(notas='<script>alert(1)</script>')
+        resposta = self.abrir()
         self.assertNotContains(resposta, '<script>alert(1)</script>')
 
-    def test_registrada_por_mostra_quem_vendeu_e_nao_o_admin_logado(self):
+    def test_registrada_por_mostra_quem_vendeu(self):
         self.vender(admin=criar_admin(email='bruno@test.com', nome='Bruno'))
         resposta = self.abrir()
         self.assertContains(resposta, '<td>Bruno</td>', html=True)
+
+    def test_registrada_por_nao_mostra_o_admin_logado(self):
+        self.vender(admin=criar_admin(email='bruno@test.com', nome='Bruno'))
+        resposta = self.abrir()
         self.assertNotContains(resposta, '<td>Alice</td>', html=True)
 
     def test_mais_recente_vem_primeiro(self):
@@ -1074,12 +1164,18 @@ class VendaListViewTestCase(TestCase):
         conteudo = self.abrir().content.decode()
         self.assertLess(conteudo.index('Ana -'), conteudo.index('Pedro -'))
 
-    def test_mostra_vendas_de_todos_os_itens(self):
+    def test_mostra_a_venda_da_agua(self):
         balde = criar_item_zeladoria(nome='Balde', quant_total=5, preco_unitario=Decimal('4.90'))
         self.vender()
         self.vender(item=balde)
         resposta = self.abrir()
         self.assertContains(resposta, '<td>Água 500ml</td>', html=True)
+
+    def test_mostra_a_venda_do_balde(self):
+        balde = criar_item_zeladoria(nome='Balde', quant_total=5, preco_unitario=Decimal('4.90'))
+        self.vender()
+        self.vender(item=balde)
+        resposta = self.abrir()
         self.assertContains(resposta, '<td>Balde</td>', html=True)
 
     def test_venda_de_item_removido_continua_aparecendo(self):
