@@ -83,6 +83,11 @@ class AdminModelTestCase(TestCase):
             call_command('createsuperuser', interactive=False, email='g@test.com', nome='Gestor', stdout=StringIO())
         admin = Admin.objects.get(email='g@test.com')
         self.assertTrue(admin.is_superuser)
+
+    def test_comando_createsuperuser_guarda_a_senha_do_ambiente(self):
+        with mock.patch.dict('os.environ', {'DJANGO_SUPERUSER_PASSWORD': SENHA}):
+            call_command('createsuperuser', interactive=False, email='g@test.com', nome='Gestor', stdout=StringIO())
+        admin = Admin.objects.get(email='g@test.com')
         self.assertTrue(admin.check_password(SENHA))
 
 
@@ -179,9 +184,12 @@ class SignUpFormTestCase(TestCase):
         form = SignUpForm({**self.dados, 'nome': 'x' * 256})
         self.assertIn('nome', form.errors)
 
-    def test_campos_de_senha_sao_mascarados(self):
+    def test_campo_senha_e_mascarado(self):
         form = SignUpForm()
         self.assertIsInstance(form.fields['senha'].widget, PasswordInput)
+
+    def test_campo_confirmar_senha_e_mascarado(self):
+        form = SignUpForm()
         self.assertIsInstance(form.fields['confirmar_senha'].widget, PasswordInput)
 
 
@@ -264,11 +272,16 @@ class LoginViewTestCase(TestCase):
         resposta = self.client.post(self.url, {**self.credenciais, 'email': 'inexistente@test.com'})
         self.assertContains(resposta, 'Email ou senha incorretos.')
 
-    def test_login_de_conta_desativada_e_recusado(self):
+    def test_login_de_conta_desativada_mostra_o_erro(self):
         self.admin.is_active = False
         self.admin.save()
         resposta = self.client.post(self.url, self.credenciais)
         self.assertContains(resposta, 'Email ou senha incorretos.')
+
+    def test_login_de_conta_desativada_nao_abre_a_sessao(self):
+        self.admin.is_active = False
+        self.admin.save()
+        self.client.post(self.url, self.credenciais)
         self.assertNotIn('_auth_user_id', self.client.session)
 
     def test_conta_desativada_perde_a_sessao_ativa(self):
@@ -360,11 +373,16 @@ class CadastroViewTestCase(TestCase):
         novo_admin = Admin.objects.get(email='b@test.com')
         self.assertEqual(int(novo_cliente.session['_auth_user_id']), novo_admin.pk)
 
-    def test_cadastro_ignora_permissoes_enviadas_no_post(self):
+    def test_cadastro_ignora_is_superuser_enviado_no_post(self):
         self.client.force_login(self.admin)
         self.client.post(self.url, {**self.dados, 'is_superuser': 'on', 'is_staff': 'on'})
         novo_admin = Admin.objects.get(email='b@test.com')
         self.assertFalse(novo_admin.is_superuser)
+
+    def test_cadastro_ignora_is_staff_enviado_no_post(self):
+        self.client.force_login(self.admin)
+        self.client.post(self.url, {**self.dados, 'is_superuser': 'on', 'is_staff': 'on'})
+        novo_admin = Admin.objects.get(email='b@test.com')
         self.assertFalse(novo_admin.is_staff)
 
     def test_cadastro_mantem_a_sessao_do_admin_logado(self):
@@ -506,7 +524,7 @@ class RequestAtualMiddlewareTestCase(SimpleTestCase):
     def setUp(self):
         self.request = RequestFactory().get('/')
 
-    def test_request_fica_disponivel_so_durante_a_chamada(self):
+    def test_request_fica_disponivel_durante_a_chamada(self):
         vistos = []
 
         def view(request):
@@ -514,6 +532,9 @@ class RequestAtualMiddlewareTestCase(SimpleTestCase):
 
         RequestAtualMiddleware(view)(self.request)
         self.assertEqual(vistos, [self.request])
+
+    def test_request_e_limpo_depois_da_chamada(self):
+        RequestAtualMiddleware(lambda request: None)(self.request)
         self.assertIsNone(get_request_atual())
 
     def test_request_e_limpo_mesmo_com_excecao(self):
@@ -563,19 +584,30 @@ class PainelAdminTestCase(TestCase):
                 resposta = self.client.get(tela)
                 self.assertEqual(resposta.status_code, 200)
 
-    def test_marcar_gestor_libera_o_painel(self):
+    def test_marcar_gestor_torna_a_conta_gestora(self):
         self.client.force_login(self.gestor)
         self.salvar_conta(self.comum, is_superuser='on')
         self.comum.refresh_from_db()
         self.assertTrue(self.comum.is_superuser)
+
+    def test_marcar_gestor_libera_o_painel(self):
+        self.client.force_login(self.gestor)
+        self.salvar_conta(self.comum, is_superuser='on')
+        self.comum.refresh_from_db()
         self.assertTrue(self.comum.is_staff)
+
+    def test_desmarcar_gestor_tira_a_condicao_de_gestor(self):
+        outro_gestor = Admin.objects.create_superuser(email='o@test.com', nome='Outro', password=SENHA)
+        self.client.force_login(self.gestor)
+        self.salvar_conta(outro_gestor)
+        outro_gestor.refresh_from_db()
+        self.assertFalse(outro_gestor.is_superuser)
 
     def test_desmarcar_gestor_retira_o_painel(self):
         outro_gestor = Admin.objects.create_superuser(email='o@test.com', nome='Outro', password=SENHA)
         self.client.force_login(self.gestor)
         self.salvar_conta(outro_gestor)
         outro_gestor.refresh_from_db()
-        self.assertFalse(outro_gestor.is_superuser)
         self.assertFalse(outro_gestor.is_staff)
 
     def test_conta_criada_no_painel_guarda_a_senha(self):
@@ -595,6 +627,11 @@ class PainelAdminTestCase(TestCase):
         url = reverse('admin:autenticacao_admin_delete', args=[self.comum.pk])
         resposta = self.client.post(url, {'post': 'yes'})
         self.assertEqual(resposta.status_code, 403)
+
+    def test_tentativa_de_excluir_conta_nao_apaga_a_conta(self):
+        self.client.force_login(self.gestor)
+        url = reverse('admin:autenticacao_admin_delete', args=[self.comum.pk])
+        self.client.post(url, {'post': 'yes'})
         self.assertTrue(Admin.objects.filter(pk=self.comum.pk).exists())
 
     def test_log_nao_pode_ser_criado(self):
@@ -607,6 +644,11 @@ class PainelAdminTestCase(TestCase):
         url = reverse('admin:autenticacao_logadmin_change', args=[self.log.pk])
         resposta = self.client.post(url, {'event_type': 'FALSO'})
         self.assertEqual(resposta.status_code, 403)
+
+    def test_tentativa_de_editar_log_nao_altera_o_log(self):
+        self.client.force_login(self.gestor)
+        url = reverse('admin:autenticacao_logadmin_change', args=[self.log.pk])
+        self.client.post(url, {'event_type': 'FALSO'})
         self.log.refresh_from_db()
         self.assertEqual(self.log.event_type, 'CONTA_CRIADA')
 
@@ -615,6 +657,11 @@ class PainelAdminTestCase(TestCase):
         url = reverse('admin:autenticacao_logadmin_delete', args=[self.log.pk])
         resposta = self.client.post(url, {'post': 'yes'})
         self.assertEqual(resposta.status_code, 403)
+
+    def test_tentativa_de_apagar_log_nao_apaga_o_log(self):
+        self.client.force_login(self.gestor)
+        url = reverse('admin:autenticacao_logadmin_delete', args=[self.log.pk])
+        self.client.post(url, {'post': 'yes'})
         self.assertTrue(LogAdmin.objects.filter(pk=self.log.pk).exists())
 
 
@@ -651,8 +698,13 @@ class EmailSemDiferenciarMaiusculasTestCase(TestCase):
         cliente = Client(raise_request_exception=False)
         cliente.force_login(self.admin)
         resposta = cliente.post(reverse('autenticacao:cadastro'), {**self.dados, 'email': 'a@TEST.COM'})
-        self.assertEqual(resposta.status_code, 200)
         self.assertIn('email', resposta.context['form'].errors)
+
+    def test_cadastro_com_email_repetido_em_maiusculas_mostra_o_formulario_de_novo(self):
+        cliente = Client(raise_request_exception=False)
+        cliente.force_login(self.admin)
+        resposta = cliente.post(reverse('autenticacao:cadastro'), {**self.dados, 'email': 'a@TEST.COM'})
+        self.assertEqual(resposta.status_code, 200)
 
     def test_formulario_recusa_email_repetido_com_maiusculas_antes_do_arroba(self):
         form = SignUpForm({**self.dados, 'email': 'A@test.com'})
