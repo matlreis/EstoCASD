@@ -362,6 +362,10 @@ class TelefoneCorrigidoPeloVisitanteTestCase(SistemaTestCase):
         resposta = self.cliente_gestor.get(reverse('estoque:emprestimo_list'))
         self.assertContains(resposta, 'Pedro/Sonic (101J Vaga A)')
 
+    def test_gestor_ve_o_telefone_formatado(self):
+        resposta = self.cliente_gestor.get(reverse('estoque:emprestimo_list'))
+        self.assertContains(resposta, '(12) 99999-9999')
+
 
 class CabecalhoAcompanhaOLoginTestCase(SistemaTestCase):
     """Os links de admin no cabeçalho do estoque aparecem e somem conforme a sessão do autenticacao."""

@@ -297,6 +297,12 @@ class MoradorTelefoneTestCase(TestCase):
             self.morador('999999999').full_clean()
         self.assertIn('telefone', erro.exception.message_dict)
 
+    def test_formata_celular(self):
+        self.assertEqual(self.morador('12999999999').telefone_formatado, '(12) 99999-9999')
+
+    def test_formata_fixo(self):
+        self.assertEqual(self.morador('1234567890').telefone_formatado, '(12) 3456-7890')
+
 
 @FIXAR_HOJE
 class LogEmprestimoCriadoTestCase(TestCase):
@@ -977,6 +983,12 @@ class EmprestimoListViewTestCase(TestCase):
     def test_cabecalho_nao_tem_link_para_o_anonimo(self):
         resposta = self.client.get(reverse('estoque:item_list'))
         self.assertNotContains(resposta, f'href="{self.url}"')
+
+    def test_mostra_o_telefone_formatado(self):
+        criar_emprestimo(self.item, self.pedro)
+        self.client.force_login(criar_admin())
+        resposta = self.client.get(self.url)
+        self.assertContains(resposta, '(12) 99999-9999')
 
 
 class DevolucaoConfirmarViewTestCase(TestCase):
