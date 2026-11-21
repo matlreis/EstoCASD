@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% load static %}
 
 {% block title %}Emprestar {{ item.nome }} | EstoCASD{% endblock %}
 
@@ -15,4 +16,8 @@
             <a class="btn" href="{% url 'estoque:item_list' %}">Cancelar</a>
         </div>
     </form>
+{% endblock %}
+
+{% block scripts %}
+    <script src="{% static 'js/emprestimo_datas.js' %}"></script>
 {% endblock %}

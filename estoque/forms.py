@@ -33,6 +33,7 @@ class EmprestimoForm(forms.Form):
         self.fields['limit_date'].widget.attrs.update({
             'min': hoje.isoformat(),
             'max': somar_dias_uteis(ultima_retirada, PRAZO_MAX_DIAS_UTEIS).isoformat(),
+            'data-prazo-dias-uteis': PRAZO_MAX_DIAS_UTEIS,
         })
 
     nome = forms.CharField(max_length=255)
