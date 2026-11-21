@@ -13,6 +13,7 @@
                 <th>Item</th>
                 <th>Quantidade</th>
                 <th>Morador</th>
+                <th>Telefone</th>
                 <th>Devolução prevista</th>
                 <th>Status</th>
                 <th>Ações</th>
@@ -24,6 +25,7 @@
                     <td>{{ emprestimo.id_item.nome }}</td>
                     <td>{{ emprestimo.quant }}</td>
                     <td>{{ emprestimo.id_morador }}</td>
+                    <td>{{ emprestimo.id_morador.telefone_formatado }}</td>
                     <td>{{ emprestimo.limit_date|date:"d/m/Y" }}</td>
                     <td>{% if emprestimo.agendado %}Agendado para {{ emprestimo.start_date|date:"d/m" }}{% else %}{{ emprestimo.get_status_display }}{% endif %}</td>
                     <td class="acoes">
@@ -35,7 +37,7 @@
                     </td>
                 </tr>
             {% empty %}
-                <tr><td colspan="6">Nenhum empréstimo ativo.</td></tr>
+                <tr><td colspan="7">Nenhum empréstimo ativo.</td></tr>
             {% endfor %}
         </tbody>
     </table>

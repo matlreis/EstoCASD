@@ -81,6 +81,10 @@ class Morador(models.Model):
     def __str__(self):
         return f'{self.nome} ({self.ap_vaga})'
 
+    @property
+    def telefone_formatado(self):
+        return f'({self.telefone[:2]}) {self.telefone[2:-4]}-{self.telefone[-4:]}'
+
 
 def data_de_hoje():
     return timezone.localdate()
