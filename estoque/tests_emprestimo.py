@@ -252,7 +252,7 @@ class MoradorEmprestimoTestCase(TestCase):
         self.assertEqual(Morador.objects.get().email, 'pedro@test.com')
 
     def test_reaproveita_o_morador_existente(self):
-        Morador.objects.create(nome='Pedro/Sonic', ap_vaga='', email='pedro@test.com')
+        Morador.objects.create(nome='Pedro/Sonic', ap_vaga='101J Vaga A', email='pedro@test.com')
         EmprestimoService.criar_emprestimo(self.item, dados_emprestimo())
         self.assertEqual(Morador.objects.count(), 1)
 
@@ -263,9 +263,9 @@ class MoradorEmprestimoTestCase(TestCase):
 
     def test_atualiza_nome_e_ap_vaga_do_morador_existente(self):
         Morador.objects.create(nome='Pedro/Sonic', ap_vaga='101J Vaga A', email='pedro@test.com')
-        EmprestimoService.criar_emprestimo(self.item, dados_emprestimo(nome='Pedro Souza/Sonic', ap_vaga='202J'))
+        EmprestimoService.criar_emprestimo(self.item, dados_emprestimo(nome='Pedro Souza/Sonic', ap_vaga='202J Vaga B'))
         morador = Morador.objects.get()
-        self.assertEqual((morador.nome, morador.ap_vaga), ('Pedro Souza/Sonic', '202J'))
+        self.assertEqual((morador.nome, morador.ap_vaga), ('Pedro Souza/Sonic', '202J Vaga B'))
 
 
 @FIXAR_HOJE
@@ -556,7 +556,7 @@ class SinalizarDevolucaoTestCase(TestCase):
         self.assertEqual([status_atual(self.emprestimo), status_atual(outro)], [DS, DS])
 
     def test_nao_sinaliza_emprestimo_de_outro_morador(self):
-        ana = Morador.objects.create(nome='Ana/Calvin', ap_vaga='102J', email='ana@test.com')
+        ana = Morador.objects.create(nome='Ana/Calvin', ap_vaga='102J Vaga B', email='ana@test.com')
         da_ana = criar_emprestimo(self.item, ana)
         EmprestimoService.sinalizar_devolucao(self.item, 'pedro@test.com')
         self.assertEqual(status_atual(da_ana), AT)
@@ -771,7 +771,7 @@ class EmprestimoListAgendadoViewTestCase(TestCase):
         self.enterContext(FIXAR_HOJE)
         self.item = ItemCASD.objects.create(nome='Caixa de som', quant_total=5)
         self.pedro = Morador.objects.create(nome='Pedro/Sonic', ap_vaga='101J Vaga A', email='pedro@test.com')
-        self.ana = Morador.objects.create(nome='Ana/Calvin', ap_vaga='102J', email='ana@test.com')
+        self.ana = Morador.objects.create(nome='Ana/Calvin', ap_vaga='102J Vaga B', email='ana@test.com')
         criar_emprestimo(self.item, self.pedro, start_date=HOJE + timedelta(days=1))
         criar_emprestimo(self.item, self.ana)
         self.client.force_login(criar_admin())

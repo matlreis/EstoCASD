@@ -59,7 +59,7 @@ class VerificarAtrasosCommandTestCase(TestCase):
     def setUp(self):
         self.saida = StringIO()
         self.item = ItemCASD.objects.create(nome='Furadeira', quant_total=2)
-        self.morador = Morador.objects.create(nome='Ana/Calvin', ap_vaga='102J', email='ana@test.com')
+        self.morador = Morador.objects.create(nome='Ana/Calvin', ap_vaga='102J Vaga B', email='ana@test.com')
 
     def test_sem_atrasos_informa_que_nao_ha_nenhum(self):
         call_command('verificar_atrasos', stdout=self.saida)
@@ -83,7 +83,7 @@ class VerificarAtrasosCommandTestCase(TestCase):
     def test_lista_o_apartamento_do_morador_atrasado(self):
         criar_emprestimo(self.item, self.morador, timezone.localdate() - timedelta(days=2))
         call_command('verificar_atrasos', stdout=self.saida)
-        self.assertIn('102J', self.saida.getvalue())
+        self.assertIn('102J Vaga B', self.saida.getvalue())
 
     def test_lista_a_quantidade_emprestada(self):
         criar_emprestimo(self.item, self.morador, timezone.localdate() - timedelta(days=2), quant=4)
