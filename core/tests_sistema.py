@@ -60,7 +60,7 @@ class SistemaTestCase(TestCase):
         return ItemCASD.objects.get(nome=nome, is_active=True)
 
     def emprestar(self, item, quant=1, nome='Pedro', email='pedro@test.com', dias=1):
-        dados = {'nome': nome, 'ap': '101J', 'email': email, 'quant': quant,
+        dados = {'nome': nome, 'ap_vaga': '101J Vaga A', 'email': email, 'quant': quant,
                  'limit_date': (HOJE + timedelta(days=dias)).isoformat()}
         return self.visitante.post(reverse('estoque:emprestimo_create', args=[item.pk]), dados)
 

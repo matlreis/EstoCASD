@@ -43,7 +43,7 @@ class FluxoTestCase(TestCase):
 
     # passos de quem pega o item emprestado (sem login)
     def emprestar(self, item, quant=1, nome='Pedro', email='pedro@test.com', dias=1, retirada_em=None):
-        dados = {'nome': nome, 'ap': '101J', 'email': email, 'quant': quant,
+        dados = {'nome': nome, 'ap_vaga': '101J Vaga A', 'email': email, 'quant': quant,
                  'limit_date': (HOJE + timedelta(days=dias)).isoformat()}
         if retirada_em is not None:
             dados['start_date'] = (HOJE + timedelta(days=retirada_em)).isoformat()

@@ -14,7 +14,7 @@ from .helpers_tests import HOJE, PRAZO_LIMITE, SABADO, DOMINGO, SEGUNDA, FIXAR_H
 def dados_emprestimo(**alteracoes):
     dados = {
         'nome': 'Pedro',
-        'ap': '101J',
+        'ap_vaga': '101J Vaga A',
         'email': 'pedro@test.com',
         'quant': 1,
         'limit_date': HOJE + timedelta(days=1),  # sexta-feira
@@ -252,20 +252,20 @@ class MoradorEmprestimoTestCase(TestCase):
         self.assertEqual(Morador.objects.get().email, 'pedro@test.com')
 
     def test_reaproveita_o_morador_existente(self):
-        Morador.objects.create(nome='Pedro', ap='101J', email='pedro@test.com')
+        Morador.objects.create(nome='Pedro', ap_vaga='', email='pedro@test.com')
         EmprestimoService.criar_emprestimo(self.item, dados_emprestimo())
         self.assertEqual(Morador.objects.count(), 1)
 
     def test_reaproveita_o_morador_mesmo_com_maiusculas_no_email(self):
-        Morador.objects.create(nome='Pedro', ap='101J', email='pedro@test.com')
+        Morador.objects.create(nome='Pedro', ap_vaga='101J Vaga A', email='pedro@test.com')
         EmprestimoService.criar_emprestimo(self.item, dados_emprestimo(email='PEDRO@test.com'))
         self.assertEqual(Morador.objects.count(), 1)
 
-    def test_atualiza_nome_e_ap_do_morador_existente(self):
-        Morador.objects.create(nome='Pedro', ap='101J', email='pedro@test.com')
-        EmprestimoService.criar_emprestimo(self.item, dados_emprestimo(nome='Pedro Souza', ap='202J'))
+    def test_atualiza_nome_e_ap_vaga_do_morador_existente(self):
+        Morador.objects.create(nome='Pedro', ap_vaga='101J Vaga A', email='pedro@test.com')
+        EmprestimoService.criar_emprestimo(self.item, dados_emprestimo(nome='Pedro Souza', ap_vaga='202J'))
         morador = Morador.objects.get()
-        self.assertEqual((morador.nome, morador.ap), ('Pedro Souza', '202J'))
+        self.assertEqual((morador.nome, morador.ap_vaga), ('Pedro Souza', '202J'))
 
 
 @FIXAR_HOJE
@@ -348,9 +348,16 @@ class EmprestimoFormTestCase(TestCase):
         form = EmprestimoForm(dados_post(email='pedro'))
         self.assertIn('email', form.errors)
 
-    def test_recusa_ap_com_mais_de_quatro_caracteres(self):
-        form = EmprestimoForm(dados_post(ap='1010J'))
-        self.assertIn('ap', form.errors)
+    def test_aceita_ap_e_vaga(self):
+        form = EmprestimoForm(dados_post(ap_vaga='105D Vaga A'))
+        self.assertTrue(form.is_valid())
+
+    def test_recusa_ap_vaga_com_mais_de_50_caracteres(self):
+        form = EmprestimoForm(dados_post(ap_vaga='A' * 51))
+        self.assertIn('ap_vaga', form.errors)
+
+    def test_ap_vaga_tem_texto_de_ajuda(self):
+        self.assertIn('Ex.:', EmprestimoForm().fields['ap_vaga'].help_text)
 
     def test_recusa_data_em_formato_invalido(self):
         form = EmprestimoForm({**dados_post(), 'limit_date': '31/02/2026'})
@@ -358,7 +365,7 @@ class EmprestimoFormTestCase(TestCase):
 
     def test_todos_os_campos_sao_obrigatorios_menos_a_retirada(self):
         form = EmprestimoForm({})
-        self.assertEqual(set(form.errors), {'nome', 'ap', 'email', 'quant', 'limit_date'})
+        self.assertEqual(set(form.errors), {'nome', 'ap_vaga', 'email', 'quant', 'limit_date'})
 
     def test_nao_valida_o_intervalo_de_datas(self):
         # min/max só limitam o navegador; a regra de negócio fica no EmprestimoService
@@ -523,7 +530,7 @@ class EmprestimoCreateViewTestCase(TestCase):
 class SinalizarDevolucaoTestCase(TestCase):
     def setUp(self):
         self.item = ItemCASD.objects.create(nome='Caixa de som', quant_total=5, quant_emprestada=2)
-        self.pedro = Morador.objects.create(nome='Pedro', ap='101J', email='pedro@test.com')
+        self.pedro = Morador.objects.create(nome='Pedro', ap_vaga='101J Vaga A', email='pedro@test.com')
         self.emprestimo = criar_emprestimo(self.item, self.pedro, quant=2)
 
     def test_muda_o_status_para_devolucao_sinalizada(self):
@@ -546,7 +553,7 @@ class SinalizarDevolucaoTestCase(TestCase):
         self.assertEqual([status_atual(self.emprestimo), status_atual(outro)], [DS, DS])
 
     def test_nao_sinaliza_emprestimo_de_outro_morador(self):
-        ana = Morador.objects.create(nome='Ana', ap='102J', email='ana@test.com')
+        ana = Morador.objects.create(nome='Ana', ap_vaga='102J', email='ana@test.com')
         da_ana = criar_emprestimo(self.item, ana)
         EmprestimoService.sinalizar_devolucao(self.item, 'pedro@test.com')
         self.assertEqual(status_atual(da_ana), AT)
@@ -597,7 +604,7 @@ class SinalizarEmprestimoAgendadoTestCase(TestCase):
 
     def setUp(self):
         self.item = ItemCASD.objects.create(nome='Caixa de som', quant_total=5, quant_emprestada=2)
-        self.pedro = Morador.objects.create(nome='Pedro', ap='101J', email='pedro@test.com')
+        self.pedro = Morador.objects.create(nome='Pedro', ap_vaga='101J Vaga A', email='pedro@test.com')
         self.agendado = criar_emprestimo(self.item, self.pedro, quant=2, start_date=HOJE + timedelta(days=1))
 
     def test_recusa_informando_que_nao_ha_emprestimo_ativo(self):
@@ -619,7 +626,7 @@ class SinalizarComUmEmprestimoAgendadoTestCase(TestCase):
     def setUp(self):
         self.enterContext(FIXAR_HOJE)
         self.item = ItemCASD.objects.create(nome='Caixa de som', quant_total=5, quant_emprestada=2)
-        self.pedro = Morador.objects.create(nome='Pedro', ap='101J', email='pedro@test.com')
+        self.pedro = Morador.objects.create(nome='Pedro', ap_vaga='101J Vaga A', email='pedro@test.com')
         self.iniciado = criar_emprestimo(self.item, self.pedro)
         self.agendado = criar_emprestimo(self.item, self.pedro, start_date=HOJE + timedelta(days=1))
         EmprestimoService.sinalizar_devolucao(self.item, 'pedro@test.com')
@@ -635,7 +642,7 @@ class SinalizarComUmEmprestimoAgendadoTestCase(TestCase):
 class SinalizarNoDiaDaRetiradaTestCase(TestCase):
     def setUp(self):
         self.item = ItemCASD.objects.create(nome='Caixa de som', quant_total=5, quant_emprestada=1)
-        self.pedro = Morador.objects.create(nome='Pedro', ap='101J', email='pedro@test.com')
+        self.pedro = Morador.objects.create(nome='Pedro', ap_vaga='101J Vaga A', email='pedro@test.com')
         self.emprestimo = criar_emprestimo(self.item, self.pedro, start_date=HOJE)
 
     def test_no_dia_da_retirada_ja_pode_sinalizar(self):
@@ -647,7 +654,7 @@ class ConfirmarDevolucaoTestCase(TestCase):
     def setUp(self):
         self.admin = criar_admin()
         self.item = ItemCASD.objects.create(nome='Caixa de som', quant_total=5, quant_emprestada=3)
-        self.pedro = Morador.objects.create(nome='Pedro', ap='101J', email='pedro@test.com')
+        self.pedro = Morador.objects.create(nome='Pedro', ap_vaga='101J Vaga A', email='pedro@test.com')
         self.emprestimo = criar_emprestimo(self.item, self.pedro, status=DS, quant=2)
 
     def test_muda_o_status_para_devolvido(self):
@@ -709,7 +716,7 @@ class ConfirmarDevolucaoTestCase(TestCase):
 class EmprestimoAgendadoTestCase(TestCase):
     def setUp(self):
         self.item = ItemCASD.objects.create(nome='Caixa de som', quant_total=3)
-        self.pedro = Morador.objects.create(nome='Pedro', ap='101J', email='pedro@test.com')
+        self.pedro = Morador.objects.create(nome='Pedro', ap_vaga='101J Vaga A', email='pedro@test.com')
 
     def test_e_agendado_quando_a_retirada_ainda_nao_chegou(self):
         emprestimo = criar_emprestimo(self.item, self.pedro, start_date=HOJE + timedelta(days=1))
@@ -731,7 +738,7 @@ class EmprestimoAgendadoTestCase(TestCase):
 class ListarAtivosTestCase(TestCase):
     def setUp(self):
         self.item = ItemCASD.objects.create(nome='Caixa de som', quant_total=5)
-        self.pedro = Morador.objects.create(nome='Pedro', ap='101J', email='pedro@test.com')
+        self.pedro = Morador.objects.create(nome='Pedro', ap_vaga='101J Vaga A', email='pedro@test.com')
 
     def test_inclui_ativos_e_com_devolucao_sinalizada(self):
         ativo = criar_emprestimo(self.item, self.pedro, status=AT)
@@ -760,8 +767,8 @@ class EmprestimoListAgendadoViewTestCase(TestCase):
     def setUp(self):
         self.enterContext(FIXAR_HOJE)
         self.item = ItemCASD.objects.create(nome='Caixa de som', quant_total=5)
-        self.pedro = Morador.objects.create(nome='Pedro', ap='101J', email='pedro@test.com')
-        self.ana = Morador.objects.create(nome='Ana', ap='102J', email='ana@test.com')
+        self.pedro = Morador.objects.create(nome='Pedro', ap_vaga='101J Vaga A', email='pedro@test.com')
+        self.ana = Morador.objects.create(nome='Ana', ap_vaga='102J', email='ana@test.com')
         criar_emprestimo(self.item, self.pedro, start_date=HOJE + timedelta(days=1))
         criar_emprestimo(self.item, self.ana)
         self.client.force_login(criar_admin())
@@ -777,7 +784,7 @@ class EmprestimoListAgendadoViewTestCase(TestCase):
 class DevolucaoSinalizarViewTestCase(TestCase):
     def setUp(self):
         self.item = ItemCASD.objects.create(nome='Caixa de som', quant_total=3, quant_emprestada=1)
-        self.pedro = Morador.objects.create(nome='Pedro', ap='101J', email='pedro@test.com')
+        self.pedro = Morador.objects.create(nome='Pedro', ap_vaga='101J Vaga A', email='pedro@test.com')
         self.emprestimo = criar_emprestimo(self.item, self.pedro)
         self.url = reverse('estoque:devolucao_sinalizar', args=[self.item.pk])
 
@@ -828,7 +835,7 @@ class EmprestimoListViewTestCase(TestCase):
     def setUp(self):
         self.url = reverse('estoque:emprestimo_list')
         self.item = ItemCASD.objects.create(nome='Caixa de som', quant_total=3)
-        self.pedro = Morador.objects.create(nome='Pedro', ap='101J', email='pedro@test.com')
+        self.pedro = Morador.objects.create(nome='Pedro', ap_vaga='101J Vaga A', email='pedro@test.com')
 
     def test_anonimo_e_redirecionado_para_o_login(self):
         resposta = self.client.get(self.url)
@@ -843,7 +850,7 @@ class EmprestimoListViewTestCase(TestCase):
         criar_emprestimo(self.item, self.pedro)
         self.client.force_login(criar_admin())
         resposta = self.client.get(self.url)
-        self.assertContains(resposta, 'Pedro (101J)')
+        self.assertContains(resposta, 'Pedro (101J Vaga A)')
 
     def test_mostra_a_data_no_formato_brasileiro(self):
         criar_emprestimo(self.item, self.pedro, limit_date=date(2026, 11, 20))
@@ -883,7 +890,7 @@ class DevolucaoConfirmarViewTestCase(TestCase):
     def setUp(self):
         self.admin = criar_admin()
         self.item = ItemCASD.objects.create(nome='Caixa de som', quant_total=3, quant_emprestada=1)
-        self.pedro = Morador.objects.create(nome='Pedro', ap='101J', email='pedro@test.com')
+        self.pedro = Morador.objects.create(nome='Pedro', ap_vaga='101J Vaga A', email='pedro@test.com')
         self.emprestimo = criar_emprestimo(self.item, self.pedro, status=DS)
         self.url = reverse('estoque:devolucao_confirmar', args=[self.emprestimo.pk])
 

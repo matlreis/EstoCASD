@@ -150,7 +150,7 @@ class UpdateItemTestCase(TestCase):
         self.assertEqual((outro.nome, outro.quant_total), ('Escada', 2))
 
     def test_nao_altera_os_emprestimos_do_item(self):
-        pedro = Morador.objects.create(nome='Pedro', ap='101J', email='pedro@test.com')
+        pedro = Morador.objects.create(nome='Pedro', ap_vaga='101J Vaga A', email='pedro@test.com')
         emprestimo = criar_emprestimo(self.item, pedro, quant=2)
         EstoqueService.update_item(self.item, dados_item(quant_total=10))
         self.assertEqual((status_atual(emprestimo), emprestimo.quant), (AT, 2))
@@ -244,7 +244,7 @@ class DeleteItemTestCase(TestCase):
         self.assertEqual(list(EstoqueService.list_items()), [novo])
 
     def test_preserva_o_historico_de_emprestimos_devolvidos(self):
-        pedro = Morador.objects.create(nome='Pedro', ap='101J', email='pedro@test.com')
+        pedro = Morador.objects.create(nome='Pedro', ap_vaga='101J Vaga A', email='pedro@test.com')
         criar_emprestimo(self.item, pedro, status=DE)
         EstoqueService.delete_item(self.item)
         self.assertTrue(Emprestimo.objects.filter(id_item=self.item).exists())
@@ -258,7 +258,7 @@ class DeleteItemTestCase(TestCase):
 class DeleteItemEmprestimosTestCase(TestCase):
     def setUp(self):
         self.item = ItemCASD.objects.create(nome='Caixa de som', quant_total=5, quant_emprestada=1)
-        self.pedro = Morador.objects.create(nome='Pedro', ap='101J', email='pedro@test.com')
+        self.pedro = Morador.objects.create(nome='Pedro', ap_vaga='101J Vaga A', email='pedro@test.com')
 
     def test_bloqueia_com_emprestimo_ativo(self):
         criar_emprestimo(self.item, self.pedro, status=AT)
