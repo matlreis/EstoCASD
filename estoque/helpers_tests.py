@@ -11,6 +11,9 @@ from .models import Emprestimo
 # do fim de semana.
 HOJE = date(2026, 11, 5)  # quinta-feira
 PRAZO_LIMITE = HOJE + timedelta(days=7)  # quinta-feira, 5º dia útil depois de HOJE
+SABADO = HOJE + timedelta(days=2)
+DOMINGO = HOJE + timedelta(days=3)
+SEGUNDA = HOJE + timedelta(days=4)
 FIXAR_HOJE = mock.patch('django.utils.timezone.localdate', new=lambda: HOJE)
 
 
@@ -19,10 +22,10 @@ DS = Emprestimo.StatusEmprestimo.DS
 DE = Emprestimo.StatusEmprestimo.DE
 
 
-def criar_emprestimo(item, morador, status=AT, quant=1, limit_date=HOJE):
+def criar_emprestimo(item, morador, status=AT, quant=1, limit_date=HOJE, start_date=HOJE):
     # cria direto no banco: quem chama ajusta quant_emprestada do item
     return Emprestimo.objects.create(id_item=item, id_morador=morador, status=status,
-                                     quant=quant, limit_date=limit_date)
+                                     quant=quant, start_date=start_date, limit_date=limit_date)
 
 
 def criar_admin(email='admin@test.com', nome='Alice'):

@@ -8,7 +8,7 @@ from django.urls import reverse
 from .forms import EmprestimoForm
 from .models import Emprestimo, ItemCASD, LogEmprestimo, Morador
 from .services import EmprestimoService
-from .helpers_tests import HOJE, PRAZO_LIMITE, FIXAR_HOJE, AT, DS, DE, criar_emprestimo, criar_admin, status_atual
+from .helpers_tests import HOJE, PRAZO_LIMITE, SABADO, DOMINGO, SEGUNDA, FIXAR_HOJE, AT, DS, DE, criar_emprestimo, criar_admin, status_atual
 
 
 def dados_emprestimo(**alteracoes):
@@ -50,6 +50,17 @@ class CreateEmprestimoTestCase(TestCase):
         EmprestimoService.criar_emprestimo(self.item, dados_emprestimo(quant=2))
         self.item.refresh_from_db()
         self.assertEqual(self.item.quant_emprestada, 3)
+
+    def test_emprestimo_agendado_comeca_ativo(self):
+        dados = dados_emprestimo(start_date=HOJE + timedelta(days=1), limit_date=SEGUNDA)
+        emprestimo = EmprestimoService.criar_emprestimo(self.item, dados)
+        self.assertEqual(emprestimo.status, Emprestimo.StatusEmprestimo.AT)
+
+    def test_emprestimo_agendado_ja_reserva_a_quantidade(self):
+        dados = dados_emprestimo(quant=2, start_date=HOJE + timedelta(days=1), limit_date=SEGUNDA)
+        EmprestimoService.criar_emprestimo(self.item, dados)
+        self.item.refresh_from_db()
+        self.assertEqual(self.item.quant_emprestada, 2)
 
 
 @FIXAR_HOJE
@@ -131,6 +142,80 @@ class DataDevolucaoTestCase(TestCase):
 
 
 @FIXAR_HOJE
+class DataRetiradaTestCase(TestCase):
+    def setUp(self):
+        self.item = ItemCASD.objects.create(nome='Caixa de som', quant_total=3)
+
+    def agendar(self, retirada_em, devolucao_em):
+        retirada = HOJE + timedelta(days=retirada_em)
+        devolucao = HOJE + timedelta(days=devolucao_em)
+        return EmprestimoService.criar_emprestimo(self.item, dados_emprestimo(start_date=retirada, limit_date=devolucao))
+
+    def test_sem_retirada_vale_hoje(self):
+        emprestimo = EmprestimoService.criar_emprestimo(self.item, dados_emprestimo())
+        self.assertEqual(emprestimo.start_date, HOJE)
+
+    def test_sem_retirada_em_fim_de_semana_vale_a_segunda(self):
+        with mock.patch('django.utils.timezone.localdate', new=lambda: SABADO):
+            emprestimo = EmprestimoService.criar_emprestimo(self.item, dados_emprestimo(limit_date=SEGUNDA))
+        self.assertEqual(emprestimo.start_date, SEGUNDA)
+
+    def test_guarda_a_data_de_retirada_informada(self):
+        emprestimo = self.agendar(1, 4)
+        self.assertEqual(emprestimo.start_date, HOJE + timedelta(days=1))
+
+    def test_aceita_retirada_hoje(self):
+        emprestimo = self.agendar(0, 1)
+        self.assertEqual(emprestimo.start_date, HOJE)
+
+    def test_aceita_retirada_na_segunda(self):
+        emprestimo = self.agendar(4, 5)
+        self.assertEqual(emprestimo.start_date, SEGUNDA)
+
+    def test_aceita_o_ultimo_dia_de_antecedencia(self):
+        emprestimo = self.agendar(7, 7)
+        self.assertEqual(emprestimo.start_date, PRAZO_LIMITE)
+
+    def test_recusa_um_dia_alem_da_antecedencia(self):
+        with self.assertRaisesMessage(ValidationError, '5 dias úteis de antecedência'):
+            self.agendar(8, 8)
+
+    def test_recusa_retirada_no_passado(self):
+        with self.assertRaisesMessage(ValidationError, 'retirada não pode estar no passado'):
+            self.agendar(-1, 1)
+
+    def test_recusa_retirada_no_sabado(self):
+        with self.assertRaisesMessage(ValidationError, 'retirada não pode cair no fim de semana'):
+            self.agendar(2, 4)
+
+    def test_recusa_retirada_no_domingo(self):
+        with self.assertRaisesMessage(ValidationError, 'retirada não pode cair no fim de semana'):
+            self.agendar(3, 4)
+
+    def test_aceita_devolucao_no_mesmo_dia_da_retirada(self):
+        emprestimo = self.agendar(1, 1)
+        self.assertEqual(emprestimo.limit_date, HOJE + timedelta(days=1))
+
+    def test_recusa_devolucao_antes_da_retirada(self):
+        with self.assertRaisesMessage(ValidationError, 'anterior à data de retirada'):
+            self.agendar(4, 1)
+
+    def test_prazo_pula_o_fim_de_semana_depois_da_retirada(self):
+        # retirada na sexta: o 5º dia útil é a sexta seguinte
+        emprestimo = self.agendar(1, 8)
+        self.assertEqual(emprestimo.limit_date, HOJE + timedelta(days=8))
+
+    def test_aceita_o_ultimo_dia_do_prazo_contado_da_retirada(self):
+        # retirada na última quinta possível: o prazo vai até a quinta seguinte
+        emprestimo = self.agendar(7, 14)
+        self.assertEqual(emprestimo.limit_date, HOJE + timedelta(days=14))
+
+    def test_recusa_um_dia_alem_do_prazo_contado_da_retirada(self):
+        with self.assertRaisesMessage(ValidationError, '5 dias úteis depois da retirada'):
+            self.agendar(7, 15)
+
+
+@FIXAR_HOJE
 class EmprestimoRecusadoTestCase(TestCase):
     """Uma solicitação recusada não pode deixar nenhum rastro no banco."""
 
@@ -209,7 +294,9 @@ class LogEmprestimoCriadoTestCase(TestCase):
 def dados_post(**alteracoes):
     # o formulário chega como texto: a data vai no formato do <input type="date">
     dados = dados_emprestimo(**alteracoes)
-    dados['limit_date'] = dados['limit_date'].isoformat()
+    for campo in ('start_date', 'limit_date'):
+        if isinstance(dados.get(campo), date):
+            dados[campo] = dados[campo].isoformat()
     return dados
 
 
@@ -269,13 +356,66 @@ class EmprestimoFormTestCase(TestCase):
         form = EmprestimoForm({**dados_post(), 'limit_date': '31/02/2026'})
         self.assertIn('limit_date', form.errors)
 
-    def test_todos_os_campos_sao_obrigatorios(self):
+    def test_todos_os_campos_sao_obrigatorios_menos_a_retirada(self):
         form = EmprestimoForm({})
         self.assertEqual(set(form.errors), {'nome', 'ap', 'email', 'quant', 'limit_date'})
 
     def test_nao_valida_o_intervalo_de_datas(self):
         # min/max só limitam o navegador; a regra de negócio fica no EmprestimoService
         form = EmprestimoForm(dados_post(limit_date=HOJE - timedelta(days=1)))
+        self.assertTrue(form.is_valid())
+
+    def test_campo_de_retirada_usa_input_date(self):
+        widget = EmprestimoForm().fields['start_date'].widget
+        self.assertEqual(widget.input_type, 'date')
+
+    def test_retirada_padrao_e_hoje_em_dia_util(self):
+        form = EmprestimoForm()
+        self.assertEqual(form.fields['start_date'].initial, HOJE)
+
+    def test_retirada_padrao_no_sabado_e_a_segunda(self):
+        with mock.patch('django.utils.timezone.localdate', new=lambda: SABADO):
+            form = EmprestimoForm()
+        self.assertEqual(form.fields['start_date'].initial, SEGUNDA)
+
+    def test_retirada_padrao_no_domingo_e_a_segunda(self):
+        with mock.patch('django.utils.timezone.localdate', new=lambda: DOMINGO):
+            form = EmprestimoForm()
+        self.assertEqual(form.fields['start_date'].initial, SEGUNDA)
+
+    def test_retirada_minima_e_hoje(self):
+        widget = EmprestimoForm().fields['start_date'].widget
+        self.assertEqual(widget.attrs['min'], HOJE.isoformat())
+
+    def test_retirada_maxima_e_cinco_dias_uteis_a_frente(self):
+        widget = EmprestimoForm().fields['start_date'].widget
+        self.assertEqual(widget.attrs['max'], PRAZO_LIMITE.isoformat())
+
+    def test_devolucao_informa_o_prazo_em_dias_uteis_ao_navegador(self):
+        widget = EmprestimoForm().fields['limit_date'].widget
+        self.assertEqual(widget.attrs['data-prazo-dias-uteis'], 5)
+
+    def test_retirada_e_opcional(self):
+        form = EmprestimoForm(dados_post())
+        self.assertNotIn('start_date', form.errors)
+
+    def test_retirada_vazia_fica_sem_valor(self):
+        form = EmprestimoForm(dados_post(start_date=''))
+        form.is_valid()
+        self.assertIsNone(form.cleaned_data['start_date'])
+
+    def test_converte_a_retirada_para_date(self):
+        form = EmprestimoForm(dados_post(start_date=SEGUNDA))
+        form.is_valid()
+        self.assertEqual(form.cleaned_data['start_date'], SEGUNDA)
+
+    def test_recusa_retirada_em_formato_invalido(self):
+        form = EmprestimoForm({**dados_post(), 'start_date': '31/02/2026'})
+        self.assertIn('start_date', form.errors)
+
+    def test_nao_valida_o_intervalo_da_retirada(self):
+        # min/max só limitam o navegador; a regra de negócio fica no EmprestimoService
+        form = EmprestimoForm(dados_post(start_date=HOJE - timedelta(days=1)))
         self.assertTrue(form.is_valid())
 
 
@@ -351,6 +491,34 @@ class EmprestimoCreateViewTestCase(TestCase):
         resposta = self.client.post(self.url, dados_post(nome='Pedro Souza', quant=4))
         self.assertContains(resposta, 'value="Pedro Souza"')
 
+    def test_formulario_mostra_a_retirada_padrao_preenchida(self):
+        resposta = self.client.get(self.url)
+        self.assertEqual(resposta.context['form']['start_date'].value(), HOJE)
+
+    def test_pagina_carrega_o_script_das_datas(self):
+        resposta = self.client.get(self.url)
+        self.assertContains(resposta, 'js/emprestimo_datas.js')
+
+    def test_pagina_informa_o_prazo_ao_script(self):
+        resposta = self.client.get(self.url)
+        self.assertContains(resposta, 'data-prazo-dias-uteis="5"')
+
+    def test_anonimo_agenda_emprestimo(self):
+        self.client.post(self.url, dados_post(start_date=HOJE + timedelta(days=1), limit_date=SEGUNDA))
+        self.assertEqual(Emprestimo.objects.get().start_date, HOJE + timedelta(days=1))
+
+    def test_retirada_vazia_usa_o_padrao(self):
+        self.client.post(self.url, dados_post(start_date=''))
+        self.assertEqual(Emprestimo.objects.get().start_date, HOJE)
+
+    def test_retirada_no_sabado_nao_registra_emprestimo(self):
+        self.client.post(self.url, dados_post(start_date=SABADO, limit_date=SEGUNDA))
+        self.assertFalse(Emprestimo.objects.exists())
+
+    def test_retirada_no_sabado_aparece_na_pagina(self):
+        resposta = self.client.post(self.url, dados_post(start_date=SABADO, limit_date=SEGUNDA))
+        self.assertContains(resposta, 'A data de retirada não pode cair no fim de semana.')
+
 
 class SinalizarDevolucaoTestCase(TestCase):
     def setUp(self):
@@ -423,6 +591,58 @@ class SinalizarDevolucaoTestCase(TestCase):
         self.assertFalse(LogEmprestimo.objects.exists())
 
 
+@FIXAR_HOJE
+class SinalizarEmprestimoAgendadoTestCase(TestCase):
+    """Enquanto a retirada não chega, o morador não pode sinalizar a devolução."""
+
+    def setUp(self):
+        self.item = ItemCASD.objects.create(nome='Caixa de som', quant_total=5, quant_emprestada=2)
+        self.pedro = Morador.objects.create(nome='Pedro', ap='101J', email='pedro@test.com')
+        self.agendado = criar_emprestimo(self.item, self.pedro, quant=2, start_date=HOJE + timedelta(days=1))
+
+    def test_recusa_informando_que_nao_ha_emprestimo_ativo(self):
+        with self.assertRaisesMessage(ValidationError, 'Nenhum empréstimo ativo'):
+            EmprestimoService.sinalizar_devolucao(self.item, 'pedro@test.com')
+
+    def test_recusa_nao_muda_o_status(self):
+        with self.assertRaises(ValidationError):
+            EmprestimoService.sinalizar_devolucao(self.item, 'pedro@test.com')
+        self.assertEqual(status_atual(self.agendado), AT)
+
+    def test_recusa_nao_cria_log(self):
+        with self.assertRaises(ValidationError):
+            EmprestimoService.sinalizar_devolucao(self.item, 'pedro@test.com')
+        self.assertFalse(LogEmprestimo.objects.exists())
+
+
+class SinalizarComUmEmprestimoAgendadoTestCase(TestCase):
+    def setUp(self):
+        self.enterContext(FIXAR_HOJE)
+        self.item = ItemCASD.objects.create(nome='Caixa de som', quant_total=5, quant_emprestada=2)
+        self.pedro = Morador.objects.create(nome='Pedro', ap='101J', email='pedro@test.com')
+        self.iniciado = criar_emprestimo(self.item, self.pedro)
+        self.agendado = criar_emprestimo(self.item, self.pedro, start_date=HOJE + timedelta(days=1))
+        EmprestimoService.sinalizar_devolucao(self.item, 'pedro@test.com')
+
+    def test_sinaliza_o_emprestimo_que_ja_comecou(self):
+        self.assertEqual(status_atual(self.iniciado), DS)
+
+    def test_nao_sinaliza_o_agendado(self):
+        self.assertEqual(status_atual(self.agendado), AT)
+
+
+@FIXAR_HOJE
+class SinalizarNoDiaDaRetiradaTestCase(TestCase):
+    def setUp(self):
+        self.item = ItemCASD.objects.create(nome='Caixa de som', quant_total=5, quant_emprestada=1)
+        self.pedro = Morador.objects.create(nome='Pedro', ap='101J', email='pedro@test.com')
+        self.emprestimo = criar_emprestimo(self.item, self.pedro, start_date=HOJE)
+
+    def test_no_dia_da_retirada_ja_pode_sinalizar(self):
+        EmprestimoService.sinalizar_devolucao(self.item, 'pedro@test.com')
+        self.assertEqual(status_atual(self.emprestimo), DS)
+
+
 class ConfirmarDevolucaoTestCase(TestCase):
     def setUp(self):
         self.admin = criar_admin()
@@ -485,6 +705,29 @@ class ConfirmarDevolucaoTestCase(TestCase):
         self.assertFalse(LogEmprestimo.objects.exists())
 
 
+@FIXAR_HOJE
+class EmprestimoAgendadoTestCase(TestCase):
+    def setUp(self):
+        self.item = ItemCASD.objects.create(nome='Caixa de som', quant_total=3)
+        self.pedro = Morador.objects.create(nome='Pedro', ap='101J', email='pedro@test.com')
+
+    def test_e_agendado_quando_a_retirada_ainda_nao_chegou(self):
+        emprestimo = criar_emprestimo(self.item, self.pedro, start_date=HOJE + timedelta(days=1))
+        self.assertTrue(emprestimo.agendado)
+
+    def test_nao_e_agendado_quando_a_retirada_e_hoje(self):
+        emprestimo = criar_emprestimo(self.item, self.pedro, start_date=HOJE)
+        self.assertFalse(emprestimo.agendado)
+
+    def test_nao_e_agendado_quando_a_retirada_ja_passou(self):
+        emprestimo = criar_emprestimo(self.item, self.pedro, start_date=HOJE - timedelta(days=1))
+        self.assertFalse(emprestimo.agendado)
+
+    def test_nao_e_agendado_quando_ja_foi_devolvido(self):
+        emprestimo = criar_emprestimo(self.item, self.pedro, status=DE, start_date=HOJE + timedelta(days=1))
+        self.assertFalse(emprestimo.agendado)
+
+
 class ListarAtivosTestCase(TestCase):
     def setUp(self):
         self.item = ItemCASD.objects.create(nome='Caixa de som', quant_total=5)
@@ -511,6 +754,24 @@ class ListarAtivosTestCase(TestCase):
             for emprestimo in EmprestimoService.listar_ativos():
                 emprestimo.id_item.nome
                 emprestimo.id_morador.nome
+
+
+class EmprestimoListAgendadoViewTestCase(TestCase):
+    def setUp(self):
+        self.enterContext(FIXAR_HOJE)
+        self.item = ItemCASD.objects.create(nome='Caixa de som', quant_total=5)
+        self.pedro = Morador.objects.create(nome='Pedro', ap='101J', email='pedro@test.com')
+        self.ana = Morador.objects.create(nome='Ana', ap='102J', email='ana@test.com')
+        criar_emprestimo(self.item, self.pedro, start_date=HOJE + timedelta(days=1))
+        criar_emprestimo(self.item, self.ana)
+        self.client.force_login(criar_admin())
+        self.resposta = self.client.get(reverse('estoque:emprestimo_list'))
+
+    def test_agendado_mostra_a_data_de_retirada(self):
+        self.assertContains(self.resposta, 'Agendado para 06/11', count=1)
+
+    def test_emprestimo_que_ja_comecou_continua_ativo(self):
+        self.assertContains(self.resposta, '<td>Ativo</td>', count=1, html=True)
 
 
 class DevolucaoSinalizarViewTestCase(TestCase):

@@ -3,6 +3,7 @@ Testes de integração do app estoque.
 Cada classe é um cenário: o setUp executa os passos pelo site, como um usuário faria.
 """
 from datetime import timedelta
+from unittest import mock
 
 from django.contrib.messages import get_messages
 from django.db.models import Sum
@@ -41,9 +42,11 @@ class FluxoTestCase(TestCase):
         return self.cliente_admin.post(reverse('estoque:devolucao_confirmar', args=[emprestimo.pk]))
 
     # passos de quem pega o item emprestado (sem login)
-    def emprestar(self, item, quant=1, nome='Pedro', email='pedro@test.com', dias=1):
+    def emprestar(self, item, quant=1, nome='Pedro', email='pedro@test.com', dias=1, retirada_em=None):
         dados = {'nome': nome, 'ap': '101J', 'email': email, 'quant': quant,
                  'limit_date': (HOJE + timedelta(days=dias)).isoformat()}
+        if retirada_em is not None:
+            dados['start_date'] = (HOJE + timedelta(days=retirada_em)).isoformat()
         return self.anonimo.post(reverse('estoque:emprestimo_create', args=[item.pk]), dados)
 
     def sinalizar_devolucao(self, item, email='pedro@test.com'):
@@ -468,6 +471,173 @@ class ConfirmacaoDuplicadaTestCase(FluxoTestCase):
     def test_emprestimo_continua_devolvido(self):
         self.emprestimo.refresh_from_db()
         self.assertEqual(self.emprestimo.status, DE)
+
+
+class AgendamentoPeloSiteTestCase(FluxoTestCase):
+    def setUp(self):
+        super().setUp()
+        self.item = self.cadastrar_item(quant_total=3)
+        self.emprestar(self.item, quant=2, retirada_em=1, dias=4)  # retira na sexta, devolve na segunda
+        self.emprestimo = Emprestimo.objects.get()
+
+    def test_emprestimo_guarda_a_data_de_retirada(self):
+        self.assertEqual(self.emprestimo.start_date, HOJE + timedelta(days=1))
+
+    def test_emprestimo_agendado_nasce_ativo(self):
+        self.assertEqual(self.emprestimo.status, AT)
+
+    def test_agendamento_ja_reserva_as_unidades(self):
+        self.assertEqual(self.item_atual(self.item).quant_disponivel, 1)
+
+    def test_listagem_publica_mostra_a_reserva(self):
+        self.assertEqual(self.itens_da_listagem()[0].quant_disponivel, 1)
+
+    def test_lista_do_admin_marca_o_emprestimo_como_agendado(self):
+        self.assertTrue(self.emprestimos_na_lista_do_admin()[0].agendado)
+
+    def test_log_registra_a_criacao(self):
+        self.assertEqual(self.eventos_do_emprestimo(self.emprestimo), [LogEmprestimo.Evento.CRIADO])
+
+
+class DevolucaoAntesDaRetiradaTestCase(FluxoTestCase):
+    def setUp(self):
+        super().setUp()
+        self.item = self.cadastrar_item(quant_total=3)
+        self.emprestar(self.item, quant=2, retirada_em=1, dias=4)
+        self.emprestimo = Emprestimo.objects.get()
+        self.resposta = self.sinalizar_devolucao(self.item)
+
+    def test_informa_que_nao_ha_emprestimo_ativo(self):
+        mensagem = 'Nenhum empréstimo ativo deste item para este e-mail.'
+        self.assertIn(mensagem, self.resposta.context['form'].non_field_errors())
+
+    def test_emprestimo_continua_ativo(self):
+        self.emprestimo.refresh_from_db()
+        self.assertEqual(self.emprestimo.status, AT)
+
+    def test_unidades_continuam_reservadas(self):
+        self.assertEqual(self.item_atual(self.item).quant_disponivel, 1)
+
+    def test_nao_gera_log_de_sinalizacao(self):
+        self.assertEqual(self.eventos_do_emprestimo(self.emprestimo), [LogEmprestimo.Evento.CRIADO])
+
+
+class RetiradaChegouTestCase(FluxoTestCase):
+    def setUp(self):
+        super().setUp()
+        self.item = self.cadastrar_item(quant_total=3)
+        self.emprestar(self.item, quant=2, retirada_em=1, dias=4)
+        self.emprestimo = Emprestimo.objects.get()
+        self.enterContext(mock.patch('django.utils.timezone.localdate', new=lambda: HOJE + timedelta(days=1)))
+
+    def test_emprestimo_deixa_de_aparecer_como_agendado(self):
+        self.assertFalse(self.emprestimos_na_lista_do_admin()[0].agendado)
+
+
+class DevolucaoAposARetiradaTestCase(FluxoTestCase):
+    def setUp(self):
+        super().setUp()
+        self.item = self.cadastrar_item(quant_total=3)
+        self.emprestar(self.item, quant=2, retirada_em=1, dias=4)
+        self.emprestimo = Emprestimo.objects.get()
+        self.enterContext(mock.patch('django.utils.timezone.localdate', new=lambda: HOJE + timedelta(days=1)))
+        self.sinalizar_devolucao(self.item)
+
+    def test_status_vira_devolucao_sinalizada(self):
+        self.emprestimo.refresh_from_db()
+        self.assertEqual(self.emprestimo.status, DS)
+
+
+class AgendamentoDesfeitoPeloAdminTestCase(FluxoTestCase):
+    def setUp(self):
+        super().setUp()
+        self.item = self.cadastrar_item(quant_total=3)
+        self.emprestar(self.item, quant=2, retirada_em=1, dias=4)
+        self.emprestimo = Emprestimo.objects.get()
+        self.confirmar_devolucao(self.emprestimo)
+
+    def test_unidades_voltam_ao_estoque(self):
+        self.assertEqual(self.item_atual(self.item).quant_disponivel, 3)
+
+    def test_status_vira_devolvido(self):
+        self.emprestimo.refresh_from_db()
+        self.assertEqual(self.emprestimo.status, DE)
+
+    def test_log_registra_so_criacao_e_confirmacao(self):
+        evento = LogEmprestimo.Evento
+        self.assertEqual(self.eventos_do_emprestimo(self.emprestimo),
+                         [evento.CRIADO, evento.DEVOLUCAO_CONFIRMADA])
+
+
+class RemocaoBloqueadaPorAgendamentoTestCase(FluxoTestCase):
+    def setUp(self):
+        super().setUp()
+        self.item = self.cadastrar_item(quant_total=3)
+        self.emprestar(self.item, quant=1, retirada_em=1, dias=4)
+        self.resposta = self.remover_item(self.item)
+
+    def test_item_continua_ativo(self):
+        self.assertTrue(self.item_atual(self.item).is_active)
+
+    def test_admin_recebe_a_mensagem_de_erro(self):
+        self.assertIn('Há empréstimos em andamento com este item.', self.mensagens(self.resposta))
+
+
+class EstoqueReservadoPorAgendamentoTestCase(FluxoTestCase):
+    def setUp(self):
+        super().setUp()
+        self.item = self.cadastrar_item(quant_total=2)
+        self.emprestar(self.item, quant=2, nome='Pedro', email='pedro@test.com', retirada_em=1, dias=4)
+        self.resposta = self.emprestar(self.item, quant=1, nome='Ana', email='ana@test.com')
+
+    def test_listagem_mostra_zero_unidades_disponiveis(self):
+        self.assertEqual(self.itens_da_listagem()[0].quant_disponivel, 0)
+
+    def test_emprestimo_imediato_das_unidades_reservadas_e_recusado(self):
+        self.assertEqual(Emprestimo.objects.count(), 1)
+
+    def test_recusa_informa_que_nao_ha_unidades(self):
+        self.assertIn('Quantidade indisponível. Disponível: 0.', self.resposta.context['form'].non_field_errors())
+
+
+class DataDeRetiradaInvalidaTestCase(FluxoTestCase):
+    def setUp(self):
+        super().setUp()
+        self.item = self.cadastrar_item(quant_total=3)
+
+    def test_retirada_no_fim_de_semana_nao_cria_emprestimo(self):
+        self.emprestar(self.item, retirada_em=2, dias=4)
+        self.assertFalse(Emprestimo.objects.exists())
+
+    def test_retirada_no_fim_de_semana_informa_o_motivo(self):
+        resposta = self.emprestar(self.item, retirada_em=2, dias=4)
+        self.assertIn('A data de retirada não pode cair no fim de semana.', resposta.context['form'].non_field_errors())
+
+    def test_retirada_no_passado_nao_cria_emprestimo(self):
+        self.emprestar(self.item, retirada_em=-1, dias=1)
+        self.assertFalse(Emprestimo.objects.exists())
+
+    def test_retirada_alem_da_antecedencia_nao_cria_emprestimo(self):
+        self.emprestar(self.item, retirada_em=8, dias=8)  # sexta-feira, 6º dia útil
+        self.assertFalse(Emprestimo.objects.exists())
+
+    def test_retirada_alem_da_antecedencia_informa_o_motivo(self):
+        resposta = self.emprestar(self.item, retirada_em=8, dias=8)
+        mensagem = 'A retirada só pode ser agendada com até 5 dias úteis de antecedência.'
+        self.assertIn(mensagem, resposta.context['form'].non_field_errors())
+
+    def test_ultimo_dia_de_antecedencia_e_aceito(self):
+        self.emprestar(self.item, retirada_em=7, dias=7)  # quinta-feira, 5º dia útil
+        self.assertEqual(Emprestimo.objects.count(), 1)
+
+    def test_devolucao_antes_da_retirada_nao_cria_emprestimo(self):
+        self.emprestar(self.item, retirada_em=4, dias=1)
+        self.assertFalse(Emprestimo.objects.exists())
+
+    def test_devolucao_antes_da_retirada_informa_o_motivo(self):
+        resposta = self.emprestar(self.item, retirada_em=4, dias=1)
+        mensagem = 'A data de devolução não pode ser anterior à data de retirada.'
+        self.assertIn(mensagem, resposta.context['form'].non_field_errors())
 
 
 class ZeladoriaCriadaTestCase(FluxoTestCase):
