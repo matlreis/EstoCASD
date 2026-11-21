@@ -17,5 +17,5 @@ class AutenticacaoService:
     def autenticar(email, senha):
         admin = authenticate(email=email, password=senha)
         if admin is None:
-            raise ValidationError('Email ou senha incorretos.')
+            raise ValidationError('E-mail ou senha incorretos.')
         return admin

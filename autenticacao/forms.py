@@ -34,5 +34,5 @@ class SignUpForm(forms.ModelForm):
         return cleaned_data
 
 class LoginForm(forms.Form):
-    email = forms.EmailField(label="Email")
+    email = forms.EmailField(label="E-mail")
     senha = forms.CharField(widget=forms.PasswordInput, strip=False, label="Senha")

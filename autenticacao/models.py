@@ -10,7 +10,7 @@ class AdminManager(BaseUserManager):
 
     def create_user(self, email, nome, password=None):
         if not email:
-            raise ValueError('O email é obrigatório')
+            raise ValueError('O e-mail é obrigatório')
         email = self.normalize_email(email)
         user = self.model(email=email, nome=nome)
         

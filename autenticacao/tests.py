@@ -236,7 +236,7 @@ class LoginViewTestCase(TestCase):
 
     def test_login_com_senha_errada_mostra_o_erro(self):
         resposta = self.client.post(self.url, {**self.credenciais, 'senha': 'senha-errada'})
-        self.assertContains(resposta, 'Email ou senha incorretos.')
+        self.assertContains(resposta, 'E-mail ou senha incorretos.')
 
     def test_login_com_email_invalido_nao_abre_a_sessao(self):
         self.client.post(self.url, {**self.credenciais, 'email': 'email-invalido'})
@@ -270,13 +270,13 @@ class LoginViewTestCase(TestCase):
 
     def test_login_com_email_inexistente_mostra_o_mesmo_erro(self):
         resposta = self.client.post(self.url, {**self.credenciais, 'email': 'inexistente@test.com'})
-        self.assertContains(resposta, 'Email ou senha incorretos.')
+        self.assertContains(resposta, 'E-mail ou senha incorretos.')
 
     def test_login_de_conta_desativada_mostra_o_erro(self):
         self.admin.is_active = False
         self.admin.save()
         resposta = self.client.post(self.url, self.credenciais)
-        self.assertContains(resposta, 'Email ou senha incorretos.')
+        self.assertContains(resposta, 'E-mail ou senha incorretos.')
 
     def test_login_de_conta_desativada_nao_abre_a_sessao(self):
         self.admin.is_active = False

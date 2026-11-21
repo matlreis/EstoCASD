@@ -193,7 +193,7 @@ class LoginComFalhasDepoisCorretoTestCase(FluxoTestCase):
 
     def test_falhas_mostram_o_erro_na_pagina_de_login(self):
         erros = self.resposta_errada.context['form'].non_field_errors()
-        self.assertIn('Email ou senha incorretos.', erros)
+        self.assertIn('E-mail ou senha incorretos.', erros)
 
     def test_falhas_nao_deixam_rastro_no_log(self):
         self.assertEqual(self.eventos_de(self.bia), ['CONTA_CRIADA'])
@@ -227,7 +227,7 @@ class ContaDesativadaTestCase(FluxoTestCase):
 
     def test_recusa_mostra_a_mesma_mensagem_de_senha_errada(self):
         resposta = self.entrar(Client(), 'bia@test.com')
-        self.assertIn('Email ou senha incorretos.', resposta.context['form'].non_field_errors())
+        self.assertIn('E-mail ou senha incorretos.', resposta.context['form'].non_field_errors())
 
     def test_recusa_nao_gera_log_de_login(self):
         self.entrar(Client(), 'bia@test.com')

@@ -38,7 +38,7 @@ class EmprestimoForm(forms.Form):
 
     nome = forms.CharField(label='Nome/Apelido', max_length=255, help_text='Ex.: Matheus/General')
     ap_vaga = forms.CharField(label='AP e vaga', max_length=50, help_text='Ex.: 105D Vaga A')
-    email = forms.EmailField()
+    email = forms.EmailField(label='E-mail')
     quant = forms.IntegerField(label='Quantidade', min_value=1, initial=1)
     start_date = forms.DateField(  # vazio vale o próximo dia útil
         label='Retirada prevista',
@@ -51,7 +51,7 @@ class EmprestimoForm(forms.Form):
     )
 
 class DevolucaoForm(forms.Form):
-    email = forms.EmailField()
+    email = forms.EmailField(label='E-mail')
 
 class VendaForm(forms.ModelForm):
     quant = forms.IntegerField(label='Quantidade', min_value=1, initial=1)
