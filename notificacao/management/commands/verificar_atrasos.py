@@ -1,6 +1,6 @@
 from django.core.management.base import BaseCommand
 from django.utils import timezone
-from notificacao.services import emprestimos_atrasados
+from notificacao.services import NotificacaoService
 
 def _formatar_atraso(limit_date):
     dias = (timezone.localdate() - limit_date).days
@@ -10,7 +10,7 @@ class Command(BaseCommand):
     help = 'Lista empréstimos ativos que passaram do prazo previsto.'
 
     def handle(self, *args, **options):
-        emprestimos = list(emprestimos_atrasados())
+        emprestimos = list(NotificacaoService.emprestimos_atrasados())
 
         if not emprestimos:
             self.stdout.write('Nenhum atraso encontrado.')

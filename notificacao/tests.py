@@ -6,7 +6,7 @@ from django.core.management import call_command
 from django.utils import timezone
 
 from estoque.models import Emprestimo, ItemCASD, Morador
-from .services import emprestimos_atrasados
+from .services import NotificacaoService
 
 
 def criar_emprestimo(item, morador, limit_date, status=Emprestimo.StatusEmprestimo.AT, quant=1):
@@ -22,35 +22,35 @@ class EmprestimosAtrasadosTestCase(TestCase):
 
     def test_emprestimo_vencido_aparece(self):
         emprestimo = criar_emprestimo(self.item, self.morador, self.ontem)
-        atrasados = emprestimos_atrasados()
+        atrasados = NotificacaoService.emprestimos_atrasados()
         self.assertIn(emprestimo, atrasados)
 
     def test_emprestimo_no_prazo_nao_aparece(self):
         emprestimo = criar_emprestimo(self.item, self.morador, self.amanha)
-        atrasados = emprestimos_atrasados()
+        atrasados = NotificacaoService.emprestimos_atrasados()
         self.assertNotIn(emprestimo, atrasados)
 
     def test_emprestimo_devolvido_nao_aparece(self):
         emprestimo = criar_emprestimo(self.item, self.morador, self.ontem, Emprestimo.StatusEmprestimo.DE)
-        atrasados = emprestimos_atrasados()
+        atrasados = NotificacaoService.emprestimos_atrasados()
         self.assertNotIn(emprestimo, atrasados)
 
     def test_mais_atrasado_vem_primeiro(self):
         recente = criar_emprestimo(self.item, self.morador, timezone.localdate() - timedelta(days=1))
         antigo = criar_emprestimo(self.item, self.morador, timezone.localdate() - timedelta(days=3))
-        atrasados = list(emprestimos_atrasados())
+        atrasados = list(NotificacaoService.emprestimos_atrasados())
         self.assertEqual(atrasados, [antigo, recente])
 
     def test_devolucao_sinalizada_nao_aparece(self):
         emprestimo = criar_emprestimo(self.item, self.morador, self.ontem, Emprestimo.StatusEmprestimo.DS)
-        atrasados = emprestimos_atrasados()
+        atrasados = NotificacaoService.emprestimos_atrasados()
         self.assertNotIn(emprestimo, atrasados)
 
     def test_ler_item_e_morador_nao_gera_consultas_extras(self):
         for _ in range(3):
             criar_emprestimo(self.item, self.morador, self.ontem)
         with self.assertNumQueries(1):
-            for emprestimo in emprestimos_atrasados():
+            for emprestimo in NotificacaoService.emprestimos_atrasados():
                 emprestimo.id_item.nome
                 emprestimo.id_morador.nome
 
