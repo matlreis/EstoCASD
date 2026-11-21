@@ -94,7 +94,7 @@ class EmprestimoService:
 
         morador, _ = Morador.objects.update_or_create(
             email=dados['email'].lower(),
-            defaults={'nome': dados['nome'], 'ap_vaga': dados['ap_vaga']},
+            defaults={'nome': dados['nome'], 'ap_vaga': dados['ap_vaga'], 'telefone': dados['telefone']},
         )
 
         item.quant_emprestada += quant

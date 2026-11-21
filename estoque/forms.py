@@ -1,8 +1,10 @@
+import re
+
 from django import forms
 from django.utils import timezone
 
 from core.utils import proximo_dia_util, somar_dias_uteis
-from .models import ItemCASD, ItemZeladoria, Venda
+from .models import ItemCASD, ItemZeladoria, Venda, validar_telefone
 from .services import ANTECEDENCIA_MAX_DIAS_UTEIS, PRAZO_MAX_DIAS_UTEIS
 
 
@@ -39,6 +41,10 @@ class EmprestimoForm(forms.Form):
     nome = forms.CharField(label='Nome/Apelido', max_length=255, help_text='Ex.: Matheus/General')
     ap_vaga = forms.CharField(label='AP e vaga', max_length=50, help_text='Ex.: 105D Vaga A')
     email = forms.EmailField(label='E-mail')
+    telefone = forms.CharField(
+        help_text='Ex.: (12) 99999-9999',
+        widget=forms.TextInput(attrs={'type': 'tel'}),  # abre o teclado numérico no celular
+    )
     quant = forms.IntegerField(label='Quantidade', min_value=1, initial=1)
     start_date = forms.DateField(  # vazio vale o próximo dia útil
         label='Retirada prevista',
@@ -49,6 +55,14 @@ class EmprestimoForm(forms.Form):
         label='Devolução prevista',
         widget=forms.DateInput(attrs={'type': 'date'}, format='%Y-%m-%d'),
     )
+
+    def clean_telefone(self):
+        # remover parênteses, espaços, pontos e hífens
+        telefone = re.sub(r'[\s().-]', '', self.cleaned_data['telefone'])
+        # ignorar zero ao início
+        telefone = telefone.removeprefix('0')
+        validar_telefone(telefone)
+        return telefone
 
 class DevolucaoForm(forms.Form):
     email = forms.EmailField(label='E-mail')
