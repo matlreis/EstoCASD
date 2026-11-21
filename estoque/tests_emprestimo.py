@@ -223,9 +223,10 @@ class EmprestimoFormTestCase(TestCase):
         widget = EmprestimoForm().fields['limit_date'].widget
         self.assertEqual(widget.attrs['min'], HOJE.isoformat())
 
-    def test_data_maxima_e_o_fim_do_prazo(self):
+    def test_data_maxima_de_devolucao_conta_da_ultima_retirada(self):
         widget = EmprestimoForm().fields['limit_date'].widget
-        self.assertEqual(widget.attrs['max'], PRAZO_LIMITE.isoformat())
+        # quinta-feira: 5º dia útil depois da última retirada possível (HOJE + 7)
+        self.assertEqual(widget.attrs['max'], (HOJE + timedelta(days=14)).isoformat())
 
     def test_limites_sao_calculados_a_cada_formulario(self):
         # se fossem calculados no corpo da classe, ficariam presos ao dia em que o servidor subiu
