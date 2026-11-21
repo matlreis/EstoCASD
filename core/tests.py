@@ -1,6 +1,6 @@
 from datetime import date
 from django.test import RequestFactory, SimpleTestCase
-from .utils import get_client_ip, somar_dias_uteis
+from .utils import get_client_ip, proximo_dia_util, somar_dias_uteis
 
 
 class GetClientIpTestCase(SimpleTestCase):
@@ -46,6 +46,24 @@ class GetClientIpTestCase(SimpleTestCase):
         del request.META['REMOTE_ADDR']
         ip = get_client_ip(request)
         self.assertIsNone(ip)
+
+
+class ProximoDiaUtilTestCase(SimpleTestCase):
+    def test_dia_util_devolve_a_mesma_data(self):
+        resultado = proximo_dia_util(date(2026, 11, 5))
+        self.assertEqual(resultado, date(2026, 11, 5))
+
+    def test_sexta_devolve_a_mesma_data(self):
+        resultado = proximo_dia_util(date(2026, 11, 6))
+        self.assertEqual(resultado, date(2026, 11, 6))
+
+    def test_sabado_devolve_a_segunda(self):
+        resultado = proximo_dia_util(date(2026, 11, 7))
+        self.assertEqual(resultado, date(2026, 11, 9))
+
+    def test_domingo_devolve_a_segunda(self):
+        resultado = proximo_dia_util(date(2026, 11, 8))
+        self.assertEqual(resultado, date(2026, 11, 9))
 
 
 class SomarDiasUteisTestCase(SimpleTestCase):

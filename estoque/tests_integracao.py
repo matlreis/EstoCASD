@@ -400,7 +400,7 @@ class DataDeDevolucaoInvalidaTestCase(FluxoTestCase):
 
     def test_alem_do_prazo_maximo_informa_o_motivo(self):
         resposta = self.emprestar(self.item, dias=8)
-        self.assertIn('A data de devolução não pode passar de 5 dias úteis.', resposta.context['form'].non_field_errors())
+        self.assertIn('A data de devolução não pode passar de 5 dias úteis depois da retirada.', resposta.context['form'].non_field_errors())
 
     def test_ultimo_dia_do_prazo_maximo_e_aceito(self):
         self.emprestar(self.item, dias=7)  # quinta-feira, 5º dia útil depois de HOJE
