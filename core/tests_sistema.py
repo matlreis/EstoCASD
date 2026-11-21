@@ -59,8 +59,8 @@ class SistemaTestCase(TestCase):
         cliente.post(reverse('estoque:item_create'), {'nome': nome, 'quant_total': quant_total})
         return ItemCASD.objects.get(nome=nome, is_active=True)
 
-    def emprestar(self, item, quant=1, nome='Pedro/Sonic', email='pedro@test.com', dias=1):
-        dados = {'nome': nome, 'ap_vaga': '101J Vaga A', 'email': email, 'quant': quant,
+    def emprestar(self, item, quant=1, nome='Pedro/Sonic', email='pedro@test.com', dias=1, telefone='(12) 99999-9999'):
+        dados = {'nome': nome, 'ap_vaga': '101J Vaga A', 'email': email, 'telefone': telefone, 'quant': quant,
                  'limit_date': (HOJE + timedelta(days=dias)).isoformat()}
         return self.visitante.post(reverse('estoque:emprestimo_create', args=[item.pk]), dados)
 
@@ -338,6 +338,29 @@ class VariosAtrasosTestCase(SistemaTestCase):
     def test_quem_devolveu_deixa_de_ser_listado(self):
         self.confirmar_devolucao(self.cliente_gestor, self.emprestimo_do_pedro)
         self.assertNotIn('Pedro/Sonic', self.rodar_verificador(6))
+
+
+class TelefoneCorrigidoPeloVisitanteTestCase(SistemaTestCase):
+    """O visitante erra o telefone, vê o erro na página, corrige e consegue o empréstimo."""
+
+    def setUp(self):
+        super().setUp()
+        self.item = self.cadastrar_item(self.cliente_gestor, quant_total=3)
+        self.resposta_com_erro = self.emprestar(self.item, quant=1, telefone='99999-9999')
+        self.emprestar(self.item, quant=1, telefone='(012) 99999-9999')
+
+    def test_primeira_tentativa_mostra_o_formato_esperado(self):
+        self.assertContains(self.resposta_com_erro, 'Informe um telefone com DDD.')
+
+    def test_so_o_emprestimo_corrigido_e_registrado(self):
+        self.assertEqual(Emprestimo.objects.count(), 1)
+
+    def test_disponivel_desconta_so_o_emprestimo_corrigido(self):
+        self.assertEqual(self.itens_da_listagem()[0].quant_disponivel, 2)
+
+    def test_gestor_ve_o_emprestimo_na_lista(self):
+        resposta = self.cliente_gestor.get(reverse('estoque:emprestimo_list'))
+        self.assertContains(resposta, 'Pedro/Sonic (101J Vaga A)')
 
 
 class CabecalhoAcompanhaOLoginTestCase(SistemaTestCase):

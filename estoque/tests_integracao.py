@@ -42,8 +42,9 @@ class FluxoTestCase(TestCase):
         return self.cliente_admin.post(reverse('estoque:devolucao_confirmar', args=[emprestimo.pk]))
 
     # passos de quem pega o item emprestado (sem login)
-    def emprestar(self, item, quant=1, nome='Pedro/Sonic', email='pedro@test.com', dias=1, retirada_em=None):
-        dados = {'nome': nome, 'ap_vaga': '101J Vaga A', 'email': email, 'quant': quant,
+    def emprestar(self, item, quant=1, nome='Pedro/Sonic', email='pedro@test.com', dias=1, retirada_em=None,
+                  telefone='(12) 99999-9999'):
+        dados = {'nome': nome, 'ap_vaga': '101J Vaga A', 'email': email, 'telefone': telefone, 'quant': quant,
                  'limit_date': (HOJE + timedelta(days=dias)).isoformat()}
         if retirada_em is not None:
             dados['start_date'] = (HOJE + timedelta(days=retirada_em)).isoformat()
@@ -419,6 +420,44 @@ class DataDeDevolucaoInvalidaTestCase(FluxoTestCase):
 
     def test_recusa_nao_altera_a_disponibilidade(self):
         self.emprestar(self.item, dias=2)
+        self.assertEqual(self.item_atual(self.item).quant_disponivel, 3)
+
+
+class TelefoneComMascaraTestCase(FluxoTestCase):
+    """O morador digita o telefone com máscara e com zero antes do DDD."""
+
+    def setUp(self):
+        super().setUp()
+        self.item = self.cadastrar_item(quant_total=3)
+        self.emprestar(self.item, telefone='(012) 99999-9999')
+
+    def test_emprestimo_e_registrado(self):
+        self.assertEqual(Emprestimo.objects.count(), 1)
+
+    def test_morador_fica_com_o_telefone_so_com_digitos(self):
+        self.assertEqual(Morador.objects.get().telefone, '12999999999')
+
+    def test_novo_emprestimo_atualiza_o_telefone(self):
+        self.emprestar(self.item, telefone='(12) 3456-7890')
+        self.assertEqual(Morador.objects.get().telefone, '1234567890')
+
+
+class TelefoneInvalidoTestCase(FluxoTestCase):
+    def setUp(self):
+        super().setUp()
+        self.item = self.cadastrar_item(quant_total=3)
+        self.resposta = self.emprestar(self.item, telefone='99999-9999')
+
+    def test_nao_cria_emprestimo(self):
+        self.assertFalse(Emprestimo.objects.exists())
+
+    def test_informa_o_erro_no_campo_de_telefone(self):
+        self.assertIn('telefone', self.resposta.context['form'].errors)
+
+    def test_nao_cadastra_o_morador(self):
+        self.assertFalse(Morador.objects.exists())
+
+    def test_nao_altera_a_disponibilidade(self):
         self.assertEqual(self.item_atual(self.item).quant_disponivel, 3)
 
 

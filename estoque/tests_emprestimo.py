@@ -16,6 +16,7 @@ def dados_emprestimo(**alteracoes):
         'nome': 'Pedro/Sonic',
         'ap_vaga': '101J Vaga A',
         'email': 'pedro@test.com',
+        'telefone': '12999999999',
         'quant': 1,
         'limit_date': HOJE + timedelta(days=1),  # sexta-feira
     }
@@ -252,20 +253,49 @@ class MoradorEmprestimoTestCase(TestCase):
         self.assertEqual(Morador.objects.get().email, 'pedro@test.com')
 
     def test_reaproveita_o_morador_existente(self):
-        Morador.objects.create(nome='Pedro/Sonic', ap_vaga='101J Vaga A', email='pedro@test.com')
+        Morador.objects.create(nome='Pedro/Sonic', ap_vaga='101J Vaga A', email='pedro@test.com', telefone='12999999999')
         EmprestimoService.criar_emprestimo(self.item, dados_emprestimo())
         self.assertEqual(Morador.objects.count(), 1)
 
     def test_reaproveita_o_morador_mesmo_com_maiusculas_no_email(self):
-        Morador.objects.create(nome='Pedro/Sonic', ap_vaga='101J Vaga A', email='pedro@test.com')
+        Morador.objects.create(nome='Pedro/Sonic', ap_vaga='101J Vaga A', email='pedro@test.com', telefone='12999999999')
         EmprestimoService.criar_emprestimo(self.item, dados_emprestimo(email='PEDRO@test.com'))
         self.assertEqual(Morador.objects.count(), 1)
 
     def test_atualiza_nome_e_ap_vaga_do_morador_existente(self):
-        Morador.objects.create(nome='Pedro/Sonic', ap_vaga='101J Vaga A', email='pedro@test.com')
+        Morador.objects.create(nome='Pedro/Sonic', ap_vaga='101J Vaga A', email='pedro@test.com', telefone='12999999999')
         EmprestimoService.criar_emprestimo(self.item, dados_emprestimo(nome='Pedro Souza/Sonic', ap_vaga='202J Vaga B'))
         morador = Morador.objects.get()
         self.assertEqual((morador.nome, morador.ap_vaga), ('Pedro Souza/Sonic', '202J Vaga B'))
+
+    def test_guarda_o_telefone_do_morador_novo(self):
+        EmprestimoService.criar_emprestimo(self.item, dados_emprestimo())
+        self.assertEqual(Morador.objects.get().telefone, '12999999999')
+
+    def test_atualiza_o_telefone_do_morador_existente(self):
+        Morador.objects.create(nome='Pedro/Sonic', ap_vaga='101J Vaga A', email='pedro@test.com', telefone='12999999999')
+        EmprestimoService.criar_emprestimo(self.item, dados_emprestimo(telefone='1234567890'))
+        self.assertEqual(Morador.objects.get().telefone, '1234567890')
+
+
+class MoradorTelefoneTestCase(TestCase):
+    """O model guarda só os dígitos; a máscara é retirada antes, pelo formulário."""
+
+    def morador(self, telefone):
+        return Morador(nome='Pedro/Sonic', ap_vaga='101J Vaga A', email='pedro@test.com', telefone=telefone)
+
+    def test_aceita_telefone_so_com_digitos(self):
+        self.morador('12999999999').full_clean()  # não lança ValidationError
+
+    def test_recusa_telefone_com_mascara(self):
+        with self.assertRaises(ValidationError) as erro:
+            self.morador('(12) 99999-9999').full_clean()
+        self.assertIn('telefone', erro.exception.message_dict)
+
+    def test_recusa_telefone_sem_ddd(self):
+        with self.assertRaises(ValidationError) as erro:
+            self.morador('999999999').full_clean()
+        self.assertIn('telefone', erro.exception.message_dict)
 
 
 @FIXAR_HOJE
@@ -368,7 +398,7 @@ class EmprestimoFormTestCase(TestCase):
 
     def test_todos_os_campos_sao_obrigatorios_menos_a_retirada(self):
         form = EmprestimoForm({})
-        self.assertEqual(set(form.errors), {'nome', 'ap_vaga', 'email', 'quant', 'limit_date'})
+        self.assertEqual(set(form.errors), {'nome', 'ap_vaga', 'email', 'telefone', 'quant', 'limit_date'})
 
     def test_nao_valida_o_intervalo_de_datas(self):
         # min/max só limitam o navegador; a regra de negócio fica no EmprestimoService
@@ -427,6 +457,66 @@ class EmprestimoFormTestCase(TestCase):
         # min/max só limitam o navegador; a regra de negócio fica no EmprestimoService
         form = EmprestimoForm(dados_post(start_date=HOJE - timedelta(days=1)))
         self.assertTrue(form.is_valid())
+
+
+class TelefoneEmprestimoFormTestCase(TestCase):
+    """A máscara é livre e o zero antes do DDD é descartado; o formulário entrega só os dígitos."""
+
+    def telefone_limpo(self, telefone):
+        form = EmprestimoForm(dados_post(telefone=telefone))
+        form.is_valid()
+        return form.cleaned_data.get('telefone')
+
+    def erros(self, telefone):
+        return EmprestimoForm(dados_post(telefone=telefone)).errors
+
+    def test_aceita_celular_com_mascara(self):
+        self.assertEqual(self.telefone_limpo('(12) 99999-9999'), '12999999999')
+
+    def test_aceita_celular_so_com_digitos(self):
+        self.assertEqual(self.telefone_limpo('12999999999'), '12999999999')
+
+    def test_aceita_celular_sem_parenteses(self):
+        self.assertEqual(self.telefone_limpo('12 99999-9999'), '12999999999')
+
+    def test_aceita_telefone_fixo(self):
+        self.assertEqual(self.telefone_limpo('(12) 3456-7890'), '1234567890')
+
+    def test_descarta_o_zero_antes_do_ddd(self):
+        self.assertEqual(self.telefone_limpo('012999999999'), '12999999999')
+
+    def test_descarta_o_zero_antes_do_ddd_com_mascara(self):
+        self.assertEqual(self.telefone_limpo('(012) 99999-9999'), '12999999999')
+
+    def test_recusa_telefone_sem_ddd(self):
+        self.assertIn('telefone', self.erros('99999-9999'))
+
+    def test_recusa_ddd_com_zero(self):
+        self.assertIn('telefone', self.erros('(10) 99999-9999'))
+
+    def test_recusa_dois_zeros_antes_do_ddd(self):
+        self.assertIn('telefone', self.erros('0012999999999'))
+
+    def test_recusa_celular_sem_o_nove(self):
+        self.assertIn('telefone', self.erros('(12) 89999-9999'))
+
+    def test_recusa_fixo_comecando_com_nove(self):
+        self.assertIn('telefone', self.erros('(12) 9999-9999'))
+
+    def test_recusa_letras(self):
+        self.assertIn('telefone', self.erros('(12) 9999a-9999'))
+
+    def test_recusa_codigo_do_pais(self):
+        self.assertIn('telefone', self.erros('+55 12 99999-9999'))
+
+    def test_erro_explica_o_formato(self):
+        self.assertIn('Informe um telefone com DDD.', self.erros('99999-9999')['telefone'][0])
+
+    def test_telefone_tem_texto_de_ajuda(self):
+        self.assertIn('(12) 99999-9999', EmprestimoForm().fields['telefone'].help_text)
+
+    def test_campo_de_telefone_usa_input_tel(self):
+        self.assertEqual(EmprestimoForm().fields['telefone'].widget.input_type, 'tel')
 
 
 @FIXAR_HOJE
@@ -533,7 +623,7 @@ class EmprestimoCreateViewTestCase(TestCase):
 class SinalizarDevolucaoTestCase(TestCase):
     def setUp(self):
         self.item = ItemCASD.objects.create(nome='Caixa de som', quant_total=5, quant_emprestada=2)
-        self.pedro = Morador.objects.create(nome='Pedro/Sonic', ap_vaga='101J Vaga A', email='pedro@test.com')
+        self.pedro = Morador.objects.create(nome='Pedro/Sonic', ap_vaga='101J Vaga A', email='pedro@test.com', telefone='12999999999')
         self.emprestimo = criar_emprestimo(self.item, self.pedro, quant=2)
 
     def test_muda_o_status_para_devolucao_sinalizada(self):
@@ -556,7 +646,7 @@ class SinalizarDevolucaoTestCase(TestCase):
         self.assertEqual([status_atual(self.emprestimo), status_atual(outro)], [DS, DS])
 
     def test_nao_sinaliza_emprestimo_de_outro_morador(self):
-        ana = Morador.objects.create(nome='Ana/Calvin', ap_vaga='102J Vaga B', email='ana@test.com')
+        ana = Morador.objects.create(nome='Ana/Calvin', ap_vaga='102J Vaga B', email='ana@test.com', telefone='12988888888')
         da_ana = criar_emprestimo(self.item, ana)
         EmprestimoService.sinalizar_devolucao(self.item, 'pedro@test.com')
         self.assertEqual(status_atual(da_ana), AT)
@@ -607,7 +697,7 @@ class SinalizarEmprestimoAgendadoTestCase(TestCase):
 
     def setUp(self):
         self.item = ItemCASD.objects.create(nome='Caixa de som', quant_total=5, quant_emprestada=2)
-        self.pedro = Morador.objects.create(nome='Pedro/Sonic', ap_vaga='101J Vaga A', email='pedro@test.com')
+        self.pedro = Morador.objects.create(nome='Pedro/Sonic', ap_vaga='101J Vaga A', email='pedro@test.com', telefone='12999999999')
         self.agendado = criar_emprestimo(self.item, self.pedro, quant=2, start_date=HOJE + timedelta(days=1))
 
     def test_recusa_informando_que_nao_ha_emprestimo_ativo(self):
@@ -629,7 +719,7 @@ class SinalizarComUmEmprestimoAgendadoTestCase(TestCase):
     def setUp(self):
         self.enterContext(FIXAR_HOJE)
         self.item = ItemCASD.objects.create(nome='Caixa de som', quant_total=5, quant_emprestada=2)
-        self.pedro = Morador.objects.create(nome='Pedro/Sonic', ap_vaga='101J Vaga A', email='pedro@test.com')
+        self.pedro = Morador.objects.create(nome='Pedro/Sonic', ap_vaga='101J Vaga A', email='pedro@test.com', telefone='12999999999')
         self.iniciado = criar_emprestimo(self.item, self.pedro)
         self.agendado = criar_emprestimo(self.item, self.pedro, start_date=HOJE + timedelta(days=1))
         EmprestimoService.sinalizar_devolucao(self.item, 'pedro@test.com')
@@ -645,7 +735,7 @@ class SinalizarComUmEmprestimoAgendadoTestCase(TestCase):
 class SinalizarNoDiaDaRetiradaTestCase(TestCase):
     def setUp(self):
         self.item = ItemCASD.objects.create(nome='Caixa de som', quant_total=5, quant_emprestada=1)
-        self.pedro = Morador.objects.create(nome='Pedro/Sonic', ap_vaga='101J Vaga A', email='pedro@test.com')
+        self.pedro = Morador.objects.create(nome='Pedro/Sonic', ap_vaga='101J Vaga A', email='pedro@test.com', telefone='12999999999')
         self.emprestimo = criar_emprestimo(self.item, self.pedro, start_date=HOJE)
 
     def test_no_dia_da_retirada_ja_pode_sinalizar(self):
@@ -657,7 +747,7 @@ class ConfirmarDevolucaoTestCase(TestCase):
     def setUp(self):
         self.admin = criar_admin()
         self.item = ItemCASD.objects.create(nome='Caixa de som', quant_total=5, quant_emprestada=3)
-        self.pedro = Morador.objects.create(nome='Pedro/Sonic', ap_vaga='101J Vaga A', email='pedro@test.com')
+        self.pedro = Morador.objects.create(nome='Pedro/Sonic', ap_vaga='101J Vaga A', email='pedro@test.com', telefone='12999999999')
         self.emprestimo = criar_emprestimo(self.item, self.pedro, status=DS, quant=2)
 
     def test_muda_o_status_para_devolvido(self):
@@ -719,7 +809,7 @@ class ConfirmarDevolucaoTestCase(TestCase):
 class EmprestimoAgendadoTestCase(TestCase):
     def setUp(self):
         self.item = ItemCASD.objects.create(nome='Caixa de som', quant_total=3)
-        self.pedro = Morador.objects.create(nome='Pedro/Sonic', ap_vaga='101J Vaga A', email='pedro@test.com')
+        self.pedro = Morador.objects.create(nome='Pedro/Sonic', ap_vaga='101J Vaga A', email='pedro@test.com', telefone='12999999999')
 
     def test_e_agendado_quando_a_retirada_ainda_nao_chegou(self):
         emprestimo = criar_emprestimo(self.item, self.pedro, start_date=HOJE + timedelta(days=1))
@@ -741,7 +831,7 @@ class EmprestimoAgendadoTestCase(TestCase):
 class ListarAtivosTestCase(TestCase):
     def setUp(self):
         self.item = ItemCASD.objects.create(nome='Caixa de som', quant_total=5)
-        self.pedro = Morador.objects.create(nome='Pedro/Sonic', ap_vaga='101J Vaga A', email='pedro@test.com')
+        self.pedro = Morador.objects.create(nome='Pedro/Sonic', ap_vaga='101J Vaga A', email='pedro@test.com', telefone='12999999999')
 
     def test_inclui_ativos_e_com_devolucao_sinalizada(self):
         ativo = criar_emprestimo(self.item, self.pedro, status=AT)
@@ -770,8 +860,8 @@ class EmprestimoListAgendadoViewTestCase(TestCase):
     def setUp(self):
         self.enterContext(FIXAR_HOJE)
         self.item = ItemCASD.objects.create(nome='Caixa de som', quant_total=5)
-        self.pedro = Morador.objects.create(nome='Pedro/Sonic', ap_vaga='101J Vaga A', email='pedro@test.com')
-        self.ana = Morador.objects.create(nome='Ana/Calvin', ap_vaga='102J Vaga B', email='ana@test.com')
+        self.pedro = Morador.objects.create(nome='Pedro/Sonic', ap_vaga='101J Vaga A', email='pedro@test.com', telefone='12999999999')
+        self.ana = Morador.objects.create(nome='Ana/Calvin', ap_vaga='102J Vaga B', email='ana@test.com', telefone='12988888888')
         criar_emprestimo(self.item, self.pedro, start_date=HOJE + timedelta(days=1))
         criar_emprestimo(self.item, self.ana)
         self.client.force_login(criar_admin())
@@ -787,7 +877,7 @@ class EmprestimoListAgendadoViewTestCase(TestCase):
 class DevolucaoSinalizarViewTestCase(TestCase):
     def setUp(self):
         self.item = ItemCASD.objects.create(nome='Caixa de som', quant_total=3, quant_emprestada=1)
-        self.pedro = Morador.objects.create(nome='Pedro/Sonic', ap_vaga='101J Vaga A', email='pedro@test.com')
+        self.pedro = Morador.objects.create(nome='Pedro/Sonic', ap_vaga='101J Vaga A', email='pedro@test.com', telefone='12999999999')
         self.emprestimo = criar_emprestimo(self.item, self.pedro)
         self.url = reverse('estoque:devolucao_sinalizar', args=[self.item.pk])
 
@@ -838,7 +928,7 @@ class EmprestimoListViewTestCase(TestCase):
     def setUp(self):
         self.url = reverse('estoque:emprestimo_list')
         self.item = ItemCASD.objects.create(nome='Caixa de som', quant_total=3)
-        self.pedro = Morador.objects.create(nome='Pedro/Sonic', ap_vaga='101J Vaga A', email='pedro@test.com')
+        self.pedro = Morador.objects.create(nome='Pedro/Sonic', ap_vaga='101J Vaga A', email='pedro@test.com', telefone='12999999999')
 
     def test_anonimo_e_redirecionado_para_o_login(self):
         resposta = self.client.get(self.url)
@@ -893,7 +983,7 @@ class DevolucaoConfirmarViewTestCase(TestCase):
     def setUp(self):
         self.admin = criar_admin()
         self.item = ItemCASD.objects.create(nome='Caixa de som', quant_total=3, quant_emprestada=1)
-        self.pedro = Morador.objects.create(nome='Pedro/Sonic', ap_vaga='101J Vaga A', email='pedro@test.com')
+        self.pedro = Morador.objects.create(nome='Pedro/Sonic', ap_vaga='101J Vaga A', email='pedro@test.com', telefone='12999999999')
         self.emprestimo = criar_emprestimo(self.item, self.pedro, status=DS)
         self.url = reverse('estoque:devolucao_confirmar', args=[self.emprestimo.pk])
 
