@@ -16,7 +16,7 @@ def criar_emprestimo(item, morador, limit_date, status=Emprestimo.StatusEmpresti
 class EmprestimosAtrasadosTestCase(TestCase):
     def setUp(self):
         self.item = ItemCASD.objects.create(nome='Escada', quant_total=3)
-        self.morador = Morador.objects.create(nome='Pedro', ap_vaga='101J Vaga A', email='pedro@test.com')
+        self.morador = Morador.objects.create(nome='Pedro/Sonic', ap_vaga='101J Vaga A', email='pedro@test.com')
         self.ontem = timezone.localdate() - timedelta(days=1)
         self.amanha = timezone.localdate() + timedelta(days=1)
 
@@ -59,7 +59,7 @@ class VerificarAtrasosCommandTestCase(TestCase):
     def setUp(self):
         self.saida = StringIO()
         self.item = ItemCASD.objects.create(nome='Furadeira', quant_total=2)
-        self.morador = Morador.objects.create(nome='Ana', ap_vaga='102J', email='ana@test.com')
+        self.morador = Morador.objects.create(nome='Ana/Calvin', ap_vaga='102J', email='ana@test.com')
 
     def test_sem_atrasos_informa_que_nao_ha_nenhum(self):
         call_command('verificar_atrasos', stdout=self.saida)
@@ -78,7 +78,7 @@ class VerificarAtrasosCommandTestCase(TestCase):
     def test_lista_o_nome_do_morador_atrasado(self):
         criar_emprestimo(self.item, self.morador, timezone.localdate() - timedelta(days=2))
         call_command('verificar_atrasos', stdout=self.saida)
-        self.assertIn('Ana', self.saida.getvalue())
+        self.assertIn('Ana/Calvin', self.saida.getvalue())
 
     def test_lista_o_apartamento_do_morador_atrasado(self):
         criar_emprestimo(self.item, self.morador, timezone.localdate() - timedelta(days=2))

@@ -59,7 +59,7 @@ class SistemaTestCase(TestCase):
         cliente.post(reverse('estoque:item_create'), {'nome': nome, 'quant_total': quant_total})
         return ItemCASD.objects.get(nome=nome, is_active=True)
 
-    def emprestar(self, item, quant=1, nome='Pedro', email='pedro@test.com', dias=1):
+    def emprestar(self, item, quant=1, nome='Pedro/Sonic', email='pedro@test.com', dias=1):
         dados = {'nome': nome, 'ap_vaga': '101J Vaga A', 'email': email, 'quant': quant,
                  'limit_date': (HOJE + timedelta(days=dias)).isoformat()}
         return self.visitante.post(reverse('estoque:emprestimo_create', args=[item.pk]), dados)
@@ -317,8 +317,8 @@ class VariosAtrasosTestCase(SistemaTestCase):
     def setUp(self):
         super().setUp()
         item = self.cadastrar_item(self.cliente_gestor, quant_total=5)
-        self.emprestar(item, quant=1, nome='Pedro', email='pedro@test.com', dias=1)
-        self.emprestar(item, quant=1, nome='Ana', email='ana@test.com', dias=4)
+        self.emprestar(item, quant=1, nome='Pedro/Sonic', email='pedro@test.com', dias=1)
+        self.emprestar(item, quant=1, nome='Ana/Calvin', email='ana@test.com', dias=4)
         self.emprestimo_do_pedro = Emprestimo.objects.get(id_morador__email='pedro@test.com')
 
     def test_cabecalho_mostra_o_total_de_atrasos(self):
@@ -326,10 +326,10 @@ class VariosAtrasosTestCase(SistemaTestCase):
 
     def test_o_mais_atrasado_vem_primeiro(self):
         saida = self.rodar_verificador(6)
-        self.assertLess(saida.index('Pedro'), saida.index('Ana'))
+        self.assertLess(saida.index('Pedro/Sonic'), saida.index('Ana/Calvin'))
 
     def test_so_o_prazo_vencido_aparece(self):
-        self.assertNotIn('Ana', self.rodar_verificador(3))
+        self.assertNotIn('Ana/Calvin', self.rodar_verificador(3))
 
     def test_depois_da_devolucao_de_um_so_resta_o_outro(self):
         self.confirmar_devolucao(self.cliente_gestor, self.emprestimo_do_pedro)
@@ -337,7 +337,7 @@ class VariosAtrasosTestCase(SistemaTestCase):
 
     def test_quem_devolveu_deixa_de_ser_listado(self):
         self.confirmar_devolucao(self.cliente_gestor, self.emprestimo_do_pedro)
-        self.assertNotIn('Pedro', self.rodar_verificador(6))
+        self.assertNotIn('Pedro/Sonic', self.rodar_verificador(6))
 
 
 class CabecalhoAcompanhaOLoginTestCase(SistemaTestCase):

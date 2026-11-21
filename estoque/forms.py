@@ -36,10 +36,10 @@ class EmprestimoForm(forms.Form):
             'data-prazo-dias-uteis': PRAZO_MAX_DIAS_UTEIS,
         })
 
-    nome = forms.CharField(max_length=255)
+    nome = forms.CharField(label='Nome/Apelido', max_length=255, help_text='Ex.: Matheus/General')
     ap_vaga = forms.CharField(label='AP e vaga', max_length=50, help_text='Ex.: 105D Vaga A')
     email = forms.EmailField()
-    quant = forms.IntegerField(min_value=1, initial=1)
+    quant = forms.IntegerField(label='Quantidade', min_value=1, initial=1)
     start_date = forms.DateField(  # vazio vale o próximo dia útil
         label='Retirada prevista',
         required=False,

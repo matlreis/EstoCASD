@@ -42,7 +42,7 @@ class FluxoTestCase(TestCase):
         return self.cliente_admin.post(reverse('estoque:devolucao_confirmar', args=[emprestimo.pk]))
 
     # passos de quem pega o item emprestado (sem login)
-    def emprestar(self, item, quant=1, nome='Pedro', email='pedro@test.com', dias=1, retirada_em=None):
+    def emprestar(self, item, quant=1, nome='Pedro/Sonic', email='pedro@test.com', dias=1, retirada_em=None):
         dados = {'nome': nome, 'ap_vaga': '101J Vaga A', 'email': email, 'quant': quant,
                  'limit_date': (HOJE + timedelta(days=dias)).isoformat()}
         if retirada_em is not None:
@@ -186,8 +186,8 @@ class EstoqueEsgotadoTestCase(FluxoTestCase):
     def setUp(self):
         super().setUp()
         self.item = self.cadastrar_item(quant_total=2)
-        self.emprestar(self.item, quant=1, nome='Pedro', email='pedro@test.com')
-        self.emprestar(self.item, quant=1, nome='Ana', email='ana@test.com')
+        self.emprestar(self.item, quant=1, nome='Pedro/Sonic', email='pedro@test.com')
+        self.emprestar(self.item, quant=1, nome='Ana/Calvin', email='ana@test.com')
         self.do_pedro = Emprestimo.objects.get(id_morador__email='pedro@test.com')
 
     def test_item_esgotado_continua_na_listagem(self):
@@ -197,20 +197,20 @@ class EstoqueEsgotadoTestCase(FluxoTestCase):
         self.assertEqual(self.itens_da_listagem()[0].quant_disponivel, 0)
 
     def test_novo_emprestimo_e_recusado(self):
-        self.emprestar(self.item, quant=1, nome='Bia', email='bia@test.com')
+        self.emprestar(self.item, quant=1, nome='Bia/Tiara', email='bia@test.com')
         self.assertEqual(Emprestimo.objects.count(), 2)
 
     def test_recusa_informa_que_nao_ha_unidades(self):
-        resposta = self.emprestar(self.item, quant=1, nome='Bia', email='bia@test.com')
+        resposta = self.emprestar(self.item, quant=1, nome='Bia/Tiara', email='bia@test.com')
         self.assertIn('Quantidade indisponível. Disponível: 0.', resposta.context['form'].non_field_errors())
 
     def test_recusa_nao_cadastra_o_morador(self):
-        self.emprestar(self.item, quant=1, nome='Bia', email='bia@test.com')
+        self.emprestar(self.item, quant=1, nome='Bia/Tiara', email='bia@test.com')
         self.assertFalse(Morador.objects.filter(email='bia@test.com').exists())
 
     def test_depois_de_uma_devolucao_o_emprestimo_volta_a_ser_aceito(self):
         self.confirmar_devolucao(self.do_pedro)
-        self.emprestar(self.item, quant=1, nome='Bia', email='bia@test.com')
+        self.emprestar(self.item, quant=1, nome='Bia/Tiara', email='bia@test.com')
         self.assertEqual(Emprestimo.objects.ativos().count(), 2)
 
 
@@ -322,7 +322,7 @@ class EdicaoDeItemEmprestadoTestCase(FluxoTestCase):
 
     def test_novo_emprestimo_respeita_o_total_ampliado(self):
         self.editar_item(self.item, quant_total=5)
-        self.emprestar(self.item, quant=3, nome='Ana', email='ana@test.com')
+        self.emprestar(self.item, quant=3, nome='Ana/Calvin', email='ana@test.com')
         self.assertEqual(self.item_atual(self.item).quant_disponivel, 0)
 
 
@@ -361,12 +361,12 @@ class QuantidadeEmprestadaCoerenteTestCase(FluxoTestCase):
     def setUp(self):
         super().setUp()
         self.item = self.cadastrar_item(quant_total=6)
-        self.emprestar(self.item, quant=1, nome='Ana', email='ana@test.com')
-        self.emprestar(self.item, quant=2, nome='Pedro', email='pedro@test.com')
+        self.emprestar(self.item, quant=1, nome='Ana/Calvin', email='ana@test.com')
+        self.emprestar(self.item, quant=2, nome='Pedro/Sonic', email='pedro@test.com')
         self.sinalizar_devolucao(self.item, email='pedro@test.com')
         self.confirmar_devolucao(Emprestimo.objects.get(id_morador__email='pedro@test.com'))
         self.editar_item(self.item, quant_total=8)
-        self.emprestar(self.item, quant=3, nome='Bia', email='bia@test.com')
+        self.emprestar(self.item, quant=3, nome='Bia/Tiara', email='bia@test.com')
 
     def test_contador_do_item_e_a_soma_dos_emprestimos_em_andamento(self):
         em_andamento = Emprestimo.objects.ativos().filter(id_item=self.item).aggregate(total=Sum('quant'))
@@ -587,8 +587,8 @@ class EstoqueReservadoPorAgendamentoTestCase(FluxoTestCase):
     def setUp(self):
         super().setUp()
         self.item = self.cadastrar_item(quant_total=2)
-        self.emprestar(self.item, quant=2, nome='Pedro', email='pedro@test.com', retirada_em=1, dias=4)
-        self.resposta = self.emprestar(self.item, quant=1, nome='Ana', email='ana@test.com')
+        self.emprestar(self.item, quant=2, nome='Pedro/Sonic', email='pedro@test.com', retirada_em=1, dias=4)
+        self.resposta = self.emprestar(self.item, quant=1, nome='Ana/Calvin', email='ana@test.com')
 
     def test_listagem_mostra_zero_unidades_disponiveis(self):
         self.assertEqual(self.itens_da_listagem()[0].quant_disponivel, 0)
