@@ -1,5 +1,5 @@
 from django.conf import settings
-from django.core.validators import MinValueValidator
+from django.core.validators import MinValueValidator, RegexValidator
 from django.db import models
 from django.utils import timezone
 
@@ -62,10 +62,17 @@ class LogItemZeladoria(LogEvento):
         verbose_name_plural = 'logs de itens da zeladoria'
 
 
+validar_telefone = RegexValidator(
+    r'^[1-9]{2}(9\d{8}|[2-5]\d{7})$',   # DDD sem zero + celular (9 + 8 dígitos) ou fixo (8 dígitos, de 2 a 5)
+    'Informe um telefone com DDD. Ex.: (12) 99999-9999',
+)
+
+
 class Morador(models.Model):
     nome = models.CharField(max_length=255)
     ap_vaga = models.CharField('AP e vaga', max_length=50)
     email = models.EmailField(unique=True)
+    telefone = models.CharField(max_length=11, validators=[validar_telefone])
 
     class Meta:
         verbose_name = 'morador'
