@@ -1,6 +1,6 @@
 from datetime import datetime, time, timedelta
 from io import StringIO
-from smtplib import SMTPException
+from smtplib import SMTPException, SMTPRecipientsRefused
 from unittest import mock
 
 from django.conf import settings
@@ -290,3 +290,130 @@ class VerificarAtrasosCommandTestCase(TestCase):
         call_command('verificar_atrasos', stdout=self.saida)
         saida = self.saida.getvalue()
         self.assertLess(saida.index('Escada'), saida.index('Furadeira'))
+
+
+class NotificarAtrasosCommandTestCase(TestCase):
+    def setUp(self):
+        self.saida = StringIO()
+        self.erros = StringIO()
+        self.item = ItemCASD.objects.create(nome='Furadeira', quant_total=3)
+        self.ana = Morador.objects.create(nome='Ana/Calvin', ap_vaga='102J Vaga B', email='ana@test.com', telefone='12988888888')
+        self.bia = Morador.objects.create(nome='Bia/Hobbes', ap_vaga='103J Vaga A', email='bia@test.com', telefone='12977777777')
+        self.hoje = timezone.localdate()
+        self.ontem = self.hoje - timedelta(days=1)
+
+    def notificar(self):
+        call_command('notificar_atrasos', stdout=self.saida, stderr=self.erros)
+
+    def test_sem_atrasos_informa_que_nao_ha_nada_a_notificar(self):
+        self.notificar()
+        self.assertIn('Nenhum atraso a notificar.', self.saida.getvalue())
+
+    def test_sem_atrasos_nao_envia_email(self):
+        self.notificar()
+        self.assertEqual(len(mail.outbox), 0)
+
+    def test_com_atrasos_nao_informa_que_nao_ha_nada_a_notificar(self):
+        criar_emprestimo(self.item, self.ana, self.ontem)
+        self.notificar()
+        self.assertNotIn('Nenhum atraso a notificar.', self.saida.getvalue())
+
+    def test_envia_um_email_por_emprestimo_atrasado(self):
+        criar_emprestimo(self.item, self.ana, self.ontem)
+        criar_emprestimo(self.item, self.bia, self.ontem)
+        self.notificar()
+        self.assertEqual(len(mail.outbox), 2)
+
+    def test_morador_com_dois_atrasos_recebe_um_email_por_emprestimo(self):
+        criar_emprestimo(self.item, self.ana, self.ontem)
+        criar_emprestimo(self.item, self.ana, self.ontem)
+        self.notificar()
+        self.assertEqual([email.to for email in mail.outbox], [['ana@test.com'], ['ana@test.com']])
+
+    def test_informa_o_email_e_o_item_de_cada_alerta(self):
+        criar_emprestimo(self.item, self.ana, self.ontem)
+        self.notificar()
+        self.assertIn('Alerta enviado para ana@test.com (Furadeira).', self.saida.getvalue())
+
+    def test_informa_o_total_de_alertas_enviados(self):
+        criar_emprestimo(self.item, self.ana, self.ontem)
+        criar_emprestimo(self.item, self.bia, self.ontem)
+        self.notificar()
+        self.assertIn('Alertas enviados: 2 de 2.', self.saida.getvalue())
+
+    def test_registra_um_alerta_por_email_enviado(self):
+        criar_emprestimo(self.item, self.ana, self.ontem)
+        criar_emprestimo(self.item, self.bia, self.ontem)
+        self.notificar()
+        self.assertEqual(LogNotificacao.objects.count(), 2)
+
+    def test_segunda_execucao_no_mesmo_dia_nao_reenvia(self):
+        criar_emprestimo(self.item, self.ana, self.ontem)
+        self.notificar()
+        self.notificar()
+        self.assertEqual(len(mail.outbox), 1)
+
+    def test_segunda_execucao_no_mesmo_dia_informa_que_nao_ha_nada_a_notificar(self):
+        criar_emprestimo(self.item, self.ana, self.ontem)
+        self.notificar()
+        self.notificar()
+        self.assertIn('Nenhum atraso a notificar.', self.saida.getvalue())
+
+    def test_alertado_ontem_recebe_novo_email(self):
+        emprestimo = criar_emprestimo(self.item, self.ana, self.ontem - timedelta(days=1))
+        registrar_alerta(emprestimo, horario_local(self.ontem, 12))
+        self.notificar()
+        self.assertEqual(len(mail.outbox), 1)
+
+    def test_emprestimo_que_vence_hoje_nao_recebe_email(self):
+        criar_emprestimo(self.item, self.ana, self.hoje)
+        self.notificar()
+        self.assertEqual(len(mail.outbox), 0)
+
+    def test_devolucao_sinalizada_nao_recebe_email(self):
+        criar_emprestimo(self.item, self.ana, self.ontem, Emprestimo.StatusEmprestimo.DS)
+        self.notificar()
+        self.assertEqual(len(mail.outbox), 0)
+
+    def test_erro_que_nao_e_de_envio_interrompe_o_comando(self):
+        # só falhas de envio (OSError) são toleradas: um erro de programação não pode passar em silêncio
+        criar_emprestimo(self.item, self.ana, self.ontem)
+        with mock.patch('notificacao.services.send_mail', side_effect=ValueError):
+            with self.assertRaises(ValueError):
+                self.notificar()
+
+
+class FalhaNoNotificarAtrasosCommandTestCase(TestCase):
+    """Uma falha no envio de um alerta não pode impedir os alertas dos outros empréstimos."""
+
+    def setUp(self):
+        self.saida = StringIO()
+        self.erros = StringIO()
+        item = ItemCASD.objects.create(nome='Furadeira', quant_total=3)
+        ana = Morador.objects.create(nome='Ana/Calvin', ap_vaga='102J Vaga B', email='ana@test.com', telefone='12988888888')
+        bia = Morador.objects.create(nome='Bia/Hobbes', ap_vaga='103J Vaga A', email='bia@test.com', telefone='12977777777')
+        # o da Ana está mais atrasado, então é enviado primeiro e é o que falha
+        self.da_ana = criar_emprestimo(item, ana, timezone.localdate() - timedelta(days=2))
+        self.da_bia = criar_emprestimo(item, bia, timezone.localdate() - timedelta(days=1))
+        recusado = SMTPRecipientsRefused({'ana@test.com': (550, b'caixa inexistente')})
+        with mock.patch('notificacao.services.send_mail', side_effect=[recusado, 1]):
+            call_command('notificar_atrasos', stdout=self.saida, stderr=self.erros)
+
+    def test_informa_a_falha_com_o_email_do_morador(self):
+        self.assertIn('Não foi possível enviar o alerta para ana@test.com', self.erros.getvalue())
+
+    def test_falha_nao_aparece_como_alerta_enviado(self):
+        self.assertNotIn('Alerta enviado para ana@test.com', self.saida.getvalue())
+
+    def test_continua_e_envia_o_alerta_seguinte(self):
+        self.assertIn('Alerta enviado para bia@test.com', self.saida.getvalue())
+
+    def test_total_conta_so_os_alertas_enviados(self):
+        self.assertIn('Alertas enviados: 1 de 2.', self.saida.getvalue())
+
+    def test_registra_alerta_so_do_emprestimo_enviado(self):
+        alertados = list(LogNotificacao.objects.values_list('id_emprestimo', flat=True))
+        self.assertEqual(alertados, [self.da_bia.pk])
+
+    def test_emprestimo_que_falhou_continua_a_notificar(self):
+        self.assertIn(self.da_ana, NotificacaoService.emprestimos_a_notificar())
