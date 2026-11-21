@@ -1,0 +1,18 @@
+{% autoescape off %}Olá, {{ emprestimo.id_morador.nome }}!
+
+O prazo de devolução do seu empréstimo no CASD terminou e o item ainda não foi devolvido.
+
+Item: {{ emprestimo.id_item.nome }}
+Quantidade: {{ emprestimo.quant }}
+Devolução prevista: {{ emprestimo.limit_date|date:"d/m/Y" }}
+Atraso: {{ dias }} dia{{ dias|pluralize }}
+
+Por favor, devolva o item ao CASD o quanto antes e sinalize a devolução na página do item no EstoCASD. A devolução é concluída quando um membro do CASD a confirma.
+
+Se você já devolveu o item, desconsidere esta mensagem.
+
+Este é um e-mail automático, enviado diariamente enquanto o empréstimo estiver atrasado.
+
+Atenciosamente,
+CASD
+{% endautoescape %}
