@@ -1,9 +1,9 @@
 from django import forms
 from django.utils import timezone
 
-from core.utils import somar_dias_uteis
+from core.utils import proximo_dia_util, somar_dias_uteis
 from .models import ItemCASD, ItemZeladoria, Venda
-from .services import PRAZO_MAX_DIAS_UTEIS
+from .services import ANTECEDENCIA_MAX_DIAS_UTEIS, PRAZO_MAX_DIAS_UTEIS
 
 
 class ItemCASDForm(forms.ModelForm):
@@ -20,19 +20,30 @@ class ItemZeladoriaForm(forms.ModelForm):
         }
 
 class EmprestimoForm(forms.Form):
-    # Limitar a data limite de devolução do item
+    # Limitar as datas de retirada e de devolução do item
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         hoje = timezone.localdate()
+        ultima_retirada = somar_dias_uteis(hoje, ANTECEDENCIA_MAX_DIAS_UTEIS)
+        self.fields['start_date'].initial = proximo_dia_util(hoje)
+        self.fields['start_date'].widget.attrs.update({
+            'min': hoje.isoformat(),
+            'max': ultima_retirada.isoformat(),
+        })
         self.fields['limit_date'].widget.attrs.update({
             'min': hoje.isoformat(),
-            'max': somar_dias_uteis(hoje, PRAZO_MAX_DIAS_UTEIS).isoformat(),
+            'max': somar_dias_uteis(ultima_retirada, PRAZO_MAX_DIAS_UTEIS).isoformat(),
         })
 
     nome = forms.CharField(max_length=255)
     ap = forms.CharField(max_length=4)
     email = forms.EmailField()
     quant = forms.IntegerField(min_value=1, initial=1)
+    start_date = forms.DateField(  # vazio vale o próximo dia útil
+        label='Retirada prevista',
+        required=False,
+        widget=forms.DateInput(attrs={'type': 'date'}, format='%Y-%m-%d'),
+    )
     limit_date = forms.DateField(
         label='Devolução prevista',
         widget=forms.DateInput(attrs={'type': 'date'}, format='%Y-%m-%d'),

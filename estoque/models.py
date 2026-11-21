@@ -112,6 +112,11 @@ class Emprestimo(models.Model):
     def __str__(self):
         return f'{self.id_item} x{self.quant} para {self.id_morador}'
 
+    @property
+    def agendado(self):
+        # a retirada ainda não chegou: a quantidade já está reservada, mas o item não foi retirado
+        return self.status == self.StatusEmprestimo.AT and self.start_date > timezone.localdate()
+
 
 class LogEmprestimo(LogEvento):
     id_emprestimo = models.ForeignKey(Emprestimo, on_delete=models.CASCADE, db_column='id_emprestimo')

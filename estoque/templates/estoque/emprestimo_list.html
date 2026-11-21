@@ -25,7 +25,7 @@
                     <td>{{ emprestimo.quant }}</td>
                     <td>{{ emprestimo.id_morador }}</td>
                     <td>{{ emprestimo.limit_date|date:"d/m/Y" }}</td>
-                    <td>{{ emprestimo.get_status_display }}</td>
+                    <td>{% if emprestimo.agendado %}Agendado para {{ emprestimo.start_date|date:"d/m" }}{% else %}{{ emprestimo.get_status_display }}{% endif %}</td>
                     <td class="acoes">
                         <form method="post" action="{% url 'estoque:devolucao_confirmar' emprestimo.pk %}"
                               data-confirm="Confirmar a devolução de {{ emprestimo.id_item.nome }} por {{ emprestimo.id_morador.nome }}?">

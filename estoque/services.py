@@ -116,6 +116,7 @@ class EmprestimoService:
             id_item=item,
             id_morador__email=email.lower(),
             status=Emprestimo.StatusEmprestimo.AT,
+            start_date__lte=timezone.localdate(),
         ))
         if not emprestimos:
             raise ValidationError("Nenhum empréstimo ativo deste item para este e-mail.")
