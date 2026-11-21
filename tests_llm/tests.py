@@ -63,8 +63,10 @@ class TesteCegoLLM(StaticLiveServerTestCase):
         caixa = ItemCASD.objects.create(nome='Caixa de som', quant_total=1, quant_emprestada=1)
         extensao = ItemCASD.objects.create(nome='Extensão', quant_total=4, quant_emprestada=2)
 
-        joana = Morador.objects.create(nome='Joana/Mafalda', ap_vaga='104J Vaga A', email='joana@casd.test')
-        lucas = Morador.objects.create(nome='Lucas/Tintim', ap_vaga='305J Vaga B', email='lucas@casd.test')
+        joana = Morador.objects.create(nome='Joana/Mafalda', ap_vaga='104J Vaga A', email='joana@casd.test',
+                                       telefone='12999990104')
+        lucas = Morador.objects.create(nome='Lucas/Tintim', ap_vaga='305J Vaga B', email='lucas@casd.test',
+                                       telefone='12999990305')
         Emprestimo.objects.create(id_item=caixa, id_morador=joana, limit_date=hoje + timedelta(days=7))
         Emprestimo.objects.create(id_item=extensao, id_morador=lucas, limit_date=hoje - timedelta(days=5))
         Emprestimo.objects.create(id_item=extensao, id_morador=joana, limit_date=hoje + timedelta(days=3),

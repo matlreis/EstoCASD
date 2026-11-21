@@ -17,8 +17,10 @@ SENHA_ADMIN = 'Gestor-Casd-4821'
 CONTEXTO_CLIENTE = f"""\
 - Qualquer pessoa pode ver os itens do CASD disponíveis, pegar um item emprestado e avisar que o \
 devolveu, sem precisar de conta.
-- Para pegar um empréstimo, o morador informa nome, apartamento e e-mail. O e-mail identifica a \
-pessoa, sem diferenciar maiúsculas de minúsculas.
+- Para pegar um empréstimo, o morador informa nome ou apelido (por exemplo, Matheus/General), AP e \
+vaga, e-mail e telefone com DDD. O e-mail identifica a pessoa, sem diferenciar maiúsculas de \
+minúsculas. O telefone pode ser celular ou fixo, digitado com ou sem máscara (por exemplo, \
+(12) 99999-9999 ou 12999999999), e um zero antes do DDD é ignorado.
 - A quantidade emprestada é de pelo menos 1 e no máximo a quantidade disponível do item.
 - O morador informa quando vai retirar o item (a retirada pode ser agendada) e quando vai devolver. \
 Como o CASD não abre no fim de semana, as duas datas precisam cair em dia útil. A retirada pode ser \
@@ -39,16 +41,17 @@ quantidade e, se for vendido, o preço unitário. Uma venda registra comprador, 
 e quantidade, diminui o estoque e entra no histórico do produto e no registro de vendas."""
 
 ACAO_MORADOR_EMPRESTIMO = """\
-Você é Pedro, morador do apartamento 101, com o e-mail pedro@casd.test. Você quer pegar \
-emprestadas 2 unidades da Escada para devolver na próxima sexta-feira. Depois de pegar, avise pelo \
-site que já devolveu. Confira se a quantidade disponível mostrada pelo site faz sentido antes e \
-depois de cada passo."""
+Você é Pedro, apelido Sonic, morador do apartamento 101J, vaga A, com o e-mail pedro@casd.test e o \
+telefone (12) 99999-0101. Você quer pegar emprestadas 2 unidades da Escada para devolver na próxima \
+sexta-feira. Depois de pegar, avise pelo site que já devolveu. Confira se a quantidade disponível \
+mostrada pelo site faz sentido antes e depois de cada passo."""
 
 ACAO_MORADOR_LIMITES = """\
-Você é Ana, moradora do apartamento 202, com o e-mail ana@casd.test, e quer descobrir se o site \
-aceita pedidos que não deveria. Tente, por exemplo: pegar mais unidades do que as disponíveis, \
-zero ou um número negativo; marcar a devolução para um sábado, para uma data passada e para \
-daqui a três meses; usar o seu e-mail com letras maiúsculas; avisar a devolução de um item que \
+Você é Ana, apelido Calvin, moradora do apartamento 202J, vaga B, com o e-mail ana@casd.test e o \
+telefone (12) 99999-0202, e quer descobrir se o site aceita pedidos que não deveria. Tente, por \
+exemplo: pegar mais unidades do que as disponíveis, zero ou um número negativo; marcar a devolução \
+para um sábado, para uma data passada e para daqui a três meses; usar o seu e-mail com letras \
+maiúsculas; informar o telefone sem DDD ou com letras; avisar a devolução de um item que \
 você não pegou; abrir, sem entrar com uma conta, páginas que deveriam ser só dos administradores."""
 
 ACAO_ADMIN_ESTOQUE = f"""\
