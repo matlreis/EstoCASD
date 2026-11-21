@@ -20,6 +20,6 @@ class Command(BaseCommand):
         for e in emprestimos:
             self.stdout.write(
                 f'  {e.id_item.nome} x{e.quant} | '
-                f'{e.id_morador.nome} ({e.id_morador.ap}, {e.id_morador.email}) | '
+                f'{e.id_morador.nome} ({e.id_morador.ap_vaga}, {e.id_morador.email}) | '
                 f'{_formatar_atraso(e.limit_date)}'
             )

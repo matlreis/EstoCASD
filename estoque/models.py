@@ -64,7 +64,7 @@ class LogItemZeladoria(LogEvento):
 
 class Morador(models.Model):
     nome = models.CharField(max_length=255)
-    ap = models.CharField(max_length=4)
+    ap_vaga = models.CharField('AP e vaga', max_length=50)
     email = models.EmailField(unique=True)
 
     class Meta:
@@ -72,7 +72,7 @@ class Morador(models.Model):
         verbose_name_plural = 'moradores'
 
     def __str__(self):
-        return f'{self.nome} ({self.ap})'
+        return f'{self.nome} ({self.ap_vaga})'
 
 
 def data_de_hoje():

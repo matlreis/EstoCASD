@@ -37,7 +37,7 @@ class EmprestimoForm(forms.Form):
         })
 
     nome = forms.CharField(max_length=255)
-    ap = forms.CharField(max_length=4)
+    ap_vaga = forms.CharField(label='AP e vaga', max_length=50, help_text='Ex.: 105D Vaga A')
     email = forms.EmailField()
     quant = forms.IntegerField(min_value=1, initial=1)
     start_date = forms.DateField(  # vazio vale o próximo dia útil
