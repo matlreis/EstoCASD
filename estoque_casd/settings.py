@@ -145,9 +145,25 @@ STATICFILES_DIRS = [
 
 # Email
 # https://docs.djangoproject.com/en/6.1/topics/email/#topic-email-configuration
+# Sem SMTP_HOST, os e-mails são impressos no terminal (desenvolvimento).
 
-MAILERS = {
-    'default': {
-        'BACKEND': 'django.core.mail.backends.console.EmailBackend',
-    },
-}
+if os.environ.get('SMTP_HOST'):
+    MAILERS = {
+        'default': {
+            'BACKEND': 'django.core.mail.backends.smtp.EmailBackend',
+            'OPTIONS': {
+                'host': os.environ['SMTP_HOST'],
+                'port': int(os.environ.get('SMTP_PORT', 587)),
+                'username': os.environ.get('SMTP_USER', ''),
+                'password': os.environ.get('SMTP_PASSWORD', ''),
+                'use_tls': True,     # STARTTLS na porta 587
+                'timeout': 10,       # segundos; um servidor travado vira OSError
+            },
+        },
+    }
+else:
+    MAILERS = {
+        'default': {
+            'BACKEND': 'django.core.mail.backends.console.EmailBackend',
+        },
+    }
