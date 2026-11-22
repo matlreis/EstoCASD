@@ -18,6 +18,7 @@
         </div>
 
         <div id="campos-morador">
+            <h2 class="subtitulo-secao">Empréstimo para Morador</h2>
             {% for field in form %}
                 {% if field.name in 'nome,ap_vaga,email,telefone' %}
                     <div>
@@ -31,10 +32,11 @@
         </div>
 
         <div id="campos-iniciativa" style="display: none;">
+            <h2 class="subtitulo-secao">Empréstimo para Iniciativa</h2>
             <div class="atalhos-rapidos">
                 <span>Preenchimento rápido:</span>
                 <button type="button" class="btn btn-chip" data-iniciativa="CASD Curso">CASD Curso</button>
-                <button type="button" class="btn btn-chip" data-iniciativa="Atlética">Atlética</button>
+                <button type="button" class="btn btn-chip" data-iniciativa="AAAITA">AAAITA</button>
             </div>
 
             {% for field in form %}
@@ -84,7 +86,7 @@ document.addEventListener('DOMContentLoaded', () => {
         blocoIniciativa.style.display = modoIniciativa ? 'block' : 'none';
         btnAlternar.textContent = modoIniciativa
             ? 'Voltar para Empréstimo de Morador'
-            : 'Atalho: Empréstimo para Iniciativa';
+            : 'Empréstimo para Iniciativa';
         btnAlternar.classList.toggle('ativo', modoIniciativa);
     }
 
