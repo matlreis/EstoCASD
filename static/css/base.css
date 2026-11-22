@@ -51,7 +51,6 @@ body {
     font-weight: 500;
 }
 
-
 .cabecalho a {
     font-weight: bold;
     color: inherit;
@@ -232,8 +231,46 @@ body {
 }
 
 .pagina-link.ativa {
-    background-color: #ffffff;
+    background-color: #121212;
     color: var(--cor-primaria);
     border-color: #121212;
     font-weight: 700;
+}
+
+.atalho-barra {
+    margin-bottom: 16px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid #ccc;
+}
+
+.btn-atalho {
+    width: 100%;
+    box-sizing: border-box;
+    text-align: center;
+    background-color: #121212;
+    color: var(--cor-primaria);
+    border-color: #121212;
+    font-weight: 600;
+}
+
+.btn-atalho:hover,
+.btn-atalho.ativo {
+    background-color: var(--cor-primaria);
+    color: #121212;
+    border-color: #d4a900;
+}
+
+.atalhos-rapidos {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 12px;
+    font-size: 0.85rem;
+}
+
+.btn-chip {
+    padding: 3px 10px;
+    font-size: 0.85rem;
+    border-radius: 999px;
 }
