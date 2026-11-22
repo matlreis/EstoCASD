@@ -53,6 +53,35 @@ linha de comando. Execute `uv run manage.py createsuperuser` para criá-lo. A
 partir dele, outros administradores podem ser criados a partir da interface do
 site.
 
+## Serviço de notificação
+
+O aplicativo fornece um sistema de notificação por e-mail de empréstimos 
+atrasados para moradores. Para isso, é necessário configurar as seguintes 
+variáveis de ambiente:
+
+    SMTP_HOST=smtp.gmail.com
+    SMTP_PORT=587
+    SMTP_USER=your.account@gmail.com
+    SMTP_PASSWORD="your-app-password"
+    DEFAULT_FROM_EMAIL="EstoCASD <your.account@gmail.com>"
+
+O e-mail `your.account@gmail.com` deve possuir autentificação em dois fatores 
+para permitir a criação de app passwords (ver 
+[App passwords](https://myaccount.google.com/apppasswords)). Em seguida, 
+preencha `SMTP_PASSWORD` com a app password criada. Certifique-se de que
+`DEFAULT_FROM_EMAIL` possua o mesmo endereço de `SMTP_USER`.
+
+Em ambiente de desenvolvimento, o mailer padrão é o backend de console e, com 
+isso, os e-mails são apenas exibidos pelo terminal caso as variáveis de ambiente
+anteriores não tenham sido definidas.
+
+Para verificar os empréstimos atrasados, rode 
+`uv run manage.py verificar_atrasos`. Para enviar os e-mails com os alertas de 
+atraso para os empréstimos atrasados, execute 
+`uv run manage.py notificar_atrasos`. E-mails não enviados são explicitamente
+citados. Um mesmo empréstimo atrasado só é notificado no máximo uma vez por 
+dia. 
+
 # Testes
 
 Execute o comando `uv run manage.py test` para rodar a bateria de testes, que
