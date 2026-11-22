@@ -231,7 +231,7 @@ body {
 }
 
 .pagina-link.ativa {
-    background-color: #121212;
+    background-color: #ffffff;
     color: var(--cor-primaria);
     border-color: #121212;
     font-weight: 700;
