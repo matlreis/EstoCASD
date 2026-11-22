@@ -13,6 +13,7 @@ class ItemCASDForm(forms.ModelForm):
         model = ItemCASD
         fields = ['nome', 'quant_total']
 
+
 class ItemZeladoriaForm(forms.ModelForm):
     class Meta:
         model = ItemZeladoria
@@ -20,6 +21,7 @@ class ItemZeladoriaForm(forms.ModelForm):
         help_texts = {
             'preco_unitario': 'Opcional. Preencha apenas para itens vendidos.'
         }
+
 
 class EmprestimoForm(forms.Form):
     # Limitar as datas de retirada e de devolução do item
@@ -38,13 +40,34 @@ class EmprestimoForm(forms.Form):
             'data-prazo-dias-uteis': PRAZO_MAX_DIAS_UTEIS,
         })
 
-    nome = forms.CharField(label='Nome/Apelido', max_length=255, help_text='Ex.: Matheus/General')
-    ap_vaga = forms.CharField(label='AP e vaga', max_length=50, help_text='Ex.: 105D Vaga A')
-    email = forms.EmailField(label='E-mail')
+    eh_iniciativa = forms.BooleanField(required=False, widget=forms.HiddenInput())
+
+    nome = forms.CharField(
+        label='Nome/Apelido', max_length=255, required=False, help_text='Ex.: Matheus/General'
+    )
+    ap_vaga = forms.CharField(
+        label='AP e vaga', max_length=50, required=False, help_text='Ex.: 105D Vaga A'
+    )
+    email = forms.EmailField(label='E-mail', required=False)
     telefone = forms.CharField(
+        required=False,
         help_text='Ex.: (12) 99999-9999',
         widget=forms.TextInput(attrs={'type': 'tel'}),  # abre o teclado numérico no celular
     )
+
+    iniciativa = forms.CharField(
+        label='Nome da Iniciativa',
+        max_length=255,
+        required=False,
+        help_text='Ex.: CASD Curso, Atlética',
+    )
+    representante = forms.CharField(
+        label='Nome do Representante',
+        max_length=255,
+        required=False,
+        help_text='Ex.: João Silva',
+    )
+
     quant = forms.IntegerField(label='Quantidade', min_value=1, initial=1)
     start_date = forms.DateField(  # vazio vale o próximo dia útil
         label='Retirada prevista',
@@ -57,19 +80,50 @@ class EmprestimoForm(forms.Form):
     )
 
     def clean_telefone(self):
+        raw_eh_iniciativa = self.fields['eh_iniciativa'].widget.value_from_datadict(
+            self.data, self.files, self.add_prefix('eh_iniciativa')
+        )
+        if self.fields['eh_iniciativa'].to_python(raw_eh_iniciativa):
+            return ''
+
+        telefone = self.cleaned_data.get('telefone', '')
+        if not telefone:
+            return ''
+
         # remover parênteses, espaços, pontos e hífens
-        telefone = re.sub(r'[\s().-]', '', self.cleaned_data['telefone'])
+        telefone = re.sub(r'[\s().-]', '', telefone)
         # ignorar zero ao início
         telefone = telefone.removeprefix('0')
         validar_telefone(telefone)
         return telefone
 
+    def clean(self):
+        cleaned_data = super().clean()
+        if cleaned_data.get('eh_iniciativa'):
+            for campo in ('nome', 'ap_vaga', 'email', 'telefone'):
+                self.errors.pop(campo, None)
+                cleaned_data[campo] = ''
+            if not cleaned_data.get('iniciativa'):
+                self.add_error('iniciativa', 'Informe o nome da iniciativa.')
+            if not cleaned_data.get('representante'):
+                self.add_error('representante', 'Informe o nome do representante.')
+        else:
+            for campo in ('iniciativa', 'representante'):
+                self.errors.pop(campo, None)
+                cleaned_data[campo] = ''
+            for campo in ('nome', 'ap_vaga', 'email', 'telefone'):
+                if not cleaned_data.get(campo):
+                    self.add_error(campo, 'Este campo é obrigatório.')
+        return cleaned_data
+
+
 class DevolucaoForm(forms.Form):
     email = forms.EmailField(label='E-mail')
 
+
 class VendaForm(forms.ModelForm):
     quant = forms.IntegerField(label='Quantidade', min_value=1, initial=1)
-    
+
     class Meta:
         model = Venda
         fields = ['nome_comprador', 'ap_vaga', 'quant', 'notas']
