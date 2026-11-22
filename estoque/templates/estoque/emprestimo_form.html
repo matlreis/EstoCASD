@@ -1,5 +1,4 @@
 {% extends 'base.html' %}
-{% load static %}
 
 {% block title %}Emprestar {{ item.nome }} | EstoCASD{% endblock %}
 
@@ -9,7 +8,59 @@
 
     <form method="post" class="formulario">
         {% csrf_token %}
-        {{ form.as_div }}
+        {{ form.eh_iniciativa }}
+        {{ form.non_field_errors }}
+
+        <div class="atalho-barra">
+            <button type="button" id="btn-alternar-iniciativa" class="btn btn-atalho">
+                Atalho: Empréstimo para Iniciativa
+            </button>
+        </div>
+
+        <div id="campos-morador">
+            {% for field in form %}
+                {% if field.name in 'nome,ap_vaga,email,telefone' %}
+                    <div>
+                        {{ field.label_tag }}
+                        {{ field }}
+                        {% if field.help_text %}<div class="helptext">{{ field.help_text }}</div>{% endif %}
+                        {{ field.errors }}
+                    </div>
+                {% endif %}
+            {% endfor %}
+        </div>
+
+        <div id="campos-iniciativa" style="display: none;">
+            <div class="atalhos-rapidos">
+                <span>Preenchimento rápido:</span>
+                <button type="button" class="btn btn-chip" data-iniciativa="CASD Curso">CASD Curso</button>
+                <button type="button" class="btn btn-chip" data-iniciativa="Atlética">Atlética</button>
+            </div>
+
+            {% for field in form %}
+                {% if field.name in 'iniciativa,representante' %}
+                    <div>
+                        {{ field.label_tag }}
+                        {{ field }}
+                        {% if field.help_text %}<div class="helptext">{{ field.help_text }}</div>{% endif %}
+                        {{ field.errors }}
+                    </div>
+                {% endif %}
+            {% endfor %}
+        </div>
+
+        <div id="campos-comuns">
+            {% for field in form %}
+                {% if field.name in 'quant,start_date,limit_date' %}
+                    <div>
+                        {{ field.label_tag }}
+                        {{ field }}
+                        {% if field.help_text %}<div class="helptext">{{ field.help_text }}</div>{% endif %}
+                        {{ field.errors }}
+                    </div>
+                {% endif %}
+            {% endfor %}
+        </div>
 
         <div class="acoes">
             <button type="submit" class="btn btn-primario">Confirmar empréstimo</button>
@@ -19,5 +70,38 @@
 {% endblock %}
 
 {% block scripts %}
-    <script src="{% static 'js/emprestimo_datas.js' %}"></script>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const inputEhIniciativa = document.getElementById('id_eh_iniciativa');
+    const btnAlternar = document.getElementById('btn-alternar-iniciativa');
+    const blocoMorador = document.getElementById('campos-morador');
+    const blocoIniciativa = document.getElementById('campos-iniciativa');
+    const inputIniciativa = document.getElementById('id_iniciativa');
+
+    function atualizarModo(modoIniciativa) {
+        inputEhIniciativa.value = modoIniciativa ? 'True' : '';
+        blocoMorador.style.display = modoIniciativa ? 'none' : 'block';
+        blocoIniciativa.style.display = modoIniciativa ? 'block' : 'none';
+        btnAlternar.textContent = modoIniciativa
+            ? 'Voltar para Empréstimo de Morador'
+            : 'Atalho: Empréstimo para Iniciativa';
+        btnAlternar.classList.toggle('ativo', modoIniciativa);
+    }
+
+    const estadoInicial = (inputEhIniciativa.value || '').toLowerCase() === 'true';
+    atualizarModo(estadoInicial);
+
+    btnAlternar.addEventListener('click', () => {
+        const proximoEstado = (inputEhIniciativa.value || '').toLowerCase() !== 'true';
+        atualizarModo(proximoEstado);
+    });
+
+    document.querySelectorAll('.btn-chip').forEach(btn => {
+        btn.addEventListener('click', () => {
+            inputIniciativa.value = btn.dataset.iniciativa;
+            document.getElementById('id_representante').focus();
+        });
+    });
+});
+</script>
 {% endblock %}
