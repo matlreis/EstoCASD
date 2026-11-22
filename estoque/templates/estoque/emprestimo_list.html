@@ -4,7 +4,7 @@
 
 {% block content %}
     <div class="titulo-pagina">
-        <h1>Empréstimos Ativos</h1>
+        <h1>Empréstimos ativos</h1>
     </div>
 
     <table class="tabela">
@@ -12,8 +12,7 @@
             <tr>
                 <th>Item</th>
                 <th>Quantidade</th>
-                <th>Morador</th>
-                <th>Telefone</th>
+                <th>Morador / Iniciativa</th>
                 <th>Devolução prevista</th>
                 <th>Status</th>
                 <th>Ações</th>
@@ -24,20 +23,19 @@
                 <tr>
                     <td>{{ emprestimo.id_item.nome }}</td>
                     <td>{{ emprestimo.quant }}</td>
-                    <td>{{ emprestimo.id_morador }}</td>
-                    <td>{{ emprestimo.id_morador.telefone_formatado }}</td>
+                    <td>{{ emprestimo.solicitante }}</td>
                     <td>{{ emprestimo.limit_date|date:"d/m/Y" }}</td>
-                    <td>{% if emprestimo.agendado %}Agendado para {{ emprestimo.start_date|date:"d/m" }}{% else %}{{ emprestimo.get_status_display }}{% endif %}</td>
+                    <td>{{ emprestimo.get_status_display }}</td>
                     <td class="acoes">
                         <form method="post" action="{% url 'estoque:devolucao_confirmar' emprestimo.pk %}"
-                              data-confirm="Confirmar a devolução de {{ emprestimo.id_item.nome }} por {{ emprestimo.id_morador.nome }}?">
+                              data-confirm="Confirmar a devolução de {{ emprestimo.id_item.nome }} por {{ emprestimo.nome_solicitante }}?">
                             {% csrf_token %}
                             <button type="submit" class="btn btn-primario">Confirmar devolução</button>
                         </form>
                     </td>
                 </tr>
             {% empty %}
-                <tr><td colspan="7">Nenhum empréstimo ativo.</td></tr>
+                <tr><td colspan="6">Nenhum empréstimo ativo.</td></tr>
             {% endfor %}
         </tbody>
     </table>
