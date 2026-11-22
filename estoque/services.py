@@ -19,6 +19,7 @@ PRAZO_MAX_DIAS_UTEIS = 5
 # Antecedência máxima para agendar a retirada, em dias úteis a partir de hoje
 ANTECEDENCIA_MAX_DIAS_UTEIS = 5
 
+
 class EstoqueService:
 
     @staticmethod
@@ -92,17 +93,31 @@ class EmprestimoService:
         if limit_date.weekday() >= 5:
             raise ValidationError("A data de devolução não pode cair no fim de semana.")
 
-        morador, _ = Morador.objects.update_or_create(
-            email=dados['email'].lower(),
-            defaults={'nome': dados['nome'], 'ap_vaga': dados['ap_vaga'], 'telefone': dados['telefone']},
-        )
-
         item.quant_emprestada += quant
         item.save(update_fields=['quant_emprestada'])
 
-        emprestimo = Emprestimo.objects.create(
-            id_item=item, id_morador=morador, quant=quant, start_date=start_date, limit_date=limit_date,
-        )
+        if dados.get('eh_iniciativa') or dados.get('iniciativa'):
+            emprestimo = Emprestimo.objects.create(
+                id_item=item,
+                iniciativa=dados['iniciativa'].strip(),
+                representante=dados['representante'].strip(),
+                quant=quant,
+                start_date=start_date,
+                limit_date=limit_date,
+            )
+        else:
+            morador, _ = Morador.objects.update_or_create(
+                email=dados['email'].lower(),
+                defaults={'nome': dados['nome'], 'ap_vaga': dados['ap_vaga'], 'telefone': dados['telefone']},
+            )
+            emprestimo = Emprestimo.objects.create(
+                id_item=item,
+                id_morador=morador,
+                quant=quant,
+                start_date=start_date,
+                limit_date=limit_date,
+            )
+
         LogEmprestimo.objects.create(
             id_emprestimo=emprestimo, ip_aparelho=ip, event_type=LogEmprestimo.Evento.CRIADO,
         )
