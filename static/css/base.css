@@ -274,3 +274,9 @@ body {
     font-size: 0.85rem;
     border-radius: 999px;
 }
+
+.subtitulo-secao {
+    margin: 0 0 12px 0;
+    font-size: 1.1rem;
+    color: var(--cor-texto);
+}
