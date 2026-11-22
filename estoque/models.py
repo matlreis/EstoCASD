@@ -101,7 +101,11 @@ class EmprestimoQuerySet(models.QuerySet):
 
 class Emprestimo(models.Model):
     id_item = models.ForeignKey(ItemCASD, on_delete=models.PROTECT, db_column='id_item')
-    id_morador = models.ForeignKey(Morador, on_delete=models.PROTECT, db_column='id_morador')
+    id_morador = models.ForeignKey(
+        Morador, on_delete=models.PROTECT, db_column='id_morador', null=True, blank=True
+    )
+    iniciativa = models.CharField('iniciativa', max_length=255, blank=True, default='')
+    representante = models.CharField('representante', max_length=255, blank=True, default='')
 
     class StatusEmprestimo(models.TextChoices):
         AT = 'ATIVO', 'Ativo'
@@ -120,8 +124,20 @@ class Emprestimo(models.Model):
         verbose_name = 'empréstimo'
         verbose_name_plural = 'empréstimos'
 
+    @property
+    def solicitante(self) -> str:
+        if self.iniciativa:
+            return f'{self.iniciativa} (Rep.: {self.representante})'
+        return str(self.id_morador) if self.id_morador else '—'
+
+    @property
+    def nome_solicitante(self) -> str:
+        if self.iniciativa:
+            return f'{self.iniciativa} ({self.representante})'
+        return self.id_morador.nome if self.id_morador else '—'
+
     def __str__(self):
-        return f'{self.id_item} x{self.quant} para {self.id_morador}'
+        return f'{self.id_item} x{self.quant} para {self.solicitante}'
 
     @property
     def agendado(self):
