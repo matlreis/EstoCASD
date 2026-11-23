@@ -83,6 +83,9 @@ class EmprestimoQuerySet(models.QuerySet):
         return self.filter(status=Emprestimo.StatusEmprestimo.AT,
                            limit_date__lt=timezone.localdate())
 
+    def devolvidos(self):
+        return self.filter(status=Emprestimo.StatusEmprestimo)
+
 
 class Emprestimo(models.Model):
     id_item = models.ForeignKey(ItemCASD, on_delete=models.PROTECT, db_column='id_item')
