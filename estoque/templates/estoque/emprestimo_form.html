@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% load static %}
 
 {% block title %}Emprestar {{ item.nome }} | EstoCASD{% endblock %}
 
@@ -36,7 +37,7 @@
             <div class="atalhos-rapidos">
                 <span>Preenchimento rápido:</span>
                 <button type="button" class="btn btn-chip" data-iniciativa="CASD Curso">CASD Curso</button>
-                <button type="button" class="btn btn-chip" data-iniciativa="AAAITA">AAAITA</button>
+                <button type="button" class="btn btn-chip" data-iniciativa="Atlética">Atlética</button>
             </div>
 
             {% for field in form %}
@@ -72,38 +73,39 @@
 {% endblock %}
 
 {% block scripts %}
-<script>
-document.addEventListener('DOMContentLoaded', () => {
-    const inputEhIniciativa = document.getElementById('id_eh_iniciativa');
-    const btnAlternar = document.getElementById('btn-alternar-iniciativa');
-    const blocoMorador = document.getElementById('campos-morador');
-    const blocoIniciativa = document.getElementById('campos-iniciativa');
-    const inputIniciativa = document.getElementById('id_iniciativa');
+    <script src="{% static 'js/emprestimo_datas.js' %}"></script>
+    <script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const inputEhIniciativa = document.getElementById('id_eh_iniciativa');
+        const btnAlternar = document.getElementById('btn-alternar-iniciativa');
+        const blocoMorador = document.getElementById('campos-morador');
+        const blocoIniciativa = document.getElementById('campos-iniciativa');
+        const inputIniciativa = document.getElementById('id_iniciativa');
 
-    function atualizarModo(modoIniciativa) {
-        inputEhIniciativa.value = modoIniciativa ? 'True' : '';
-        blocoMorador.style.display = modoIniciativa ? 'none' : 'block';
-        blocoIniciativa.style.display = modoIniciativa ? 'block' : 'none';
-        btnAlternar.textContent = modoIniciativa
-            ? 'Voltar para Empréstimo de Morador'
-            : 'Empréstimo para Iniciativa';
-        btnAlternar.classList.toggle('ativo', modoIniciativa);
-    }
+        function atualizarModo(modoIniciativa) {
+            inputEhIniciativa.value = modoIniciativa ? 'True' : '';
+            blocoMorador.style.display = modoIniciativa ? 'none' : 'block';
+            blocoIniciativa.style.display = modoIniciativa ? 'block' : 'none';
+            btnAlternar.textContent = modoIniciativa
+                ? 'Voltar para Empréstimo de Morador'
+                : 'Atalho: Empréstimo para Iniciativa';
+            btnAlternar.classList.toggle('ativo', modoIniciativa);
+        }
 
-    const estadoInicial = (inputEhIniciativa.value || '').toLowerCase() === 'true';
-    atualizarModo(estadoInicial);
+        const estadoInicial = (inputEhIniciativa.value || '').toLowerCase() === 'true';
+        atualizarModo(estadoInicial);
 
-    btnAlternar.addEventListener('click', () => {
-        const proximoEstado = (inputEhIniciativa.value || '').toLowerCase() !== 'true';
-        atualizarModo(proximoEstado);
-    });
+        btnAlternar.addEventListener('click', () => {
+            const proximoEstado = (inputEhIniciativa.value || '').toLowerCase() !== 'true';
+            atualizarModo(proximoEstado);
+        });
 
-    document.querySelectorAll('.btn-chip').forEach(btn => {
-        btn.addEventListener('click', () => {
-            inputIniciativa.value = btn.dataset.iniciativa;
-            document.getElementById('id_representante').focus();
+        document.querySelectorAll('.btn-chip').forEach(btn => {
+            btn.addEventListener('click', () => {
+                inputIniciativa.value = btn.dataset.iniciativa;
+                document.getElementById('id_representante').focus();
+            });
         });
     });
-});
-</script>
+    </script>
 {% endblock %}
