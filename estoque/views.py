@@ -17,13 +17,6 @@ from .forms import (
 from .services import EstoqueService, EmprestimoService, ZeladoriaService
 
 
-# @login_not_required
-# def item_list(request):
-#     itens = EstoqueService.list_items()
-#     context = {'itens': itens}
-#     return render(request, 'estoque/item_list.html', context)
-
-
 @login_not_required
 def item_list(request):
     lista_itens = EstoqueService.list_items()
@@ -125,7 +118,11 @@ def devolucao_sinalizar(request, pk):
     return render(request, 'estoque/devolucao_form.html', context)
 
 def emprestimo_list(request):
-    emprestimos = EmprestimoService.listar_ativos()
+    lista_emprestimos = EmprestimoService.listar_ativos()
+    paginator = Paginator(lista_emprestimos, 10)
+    page_number = request.GET.get('page')
+    emprestimos = paginator.get_page(page_number)
+
     context = {'emprestimos': emprestimos}
     return render(request, 'estoque/emprestimo_list.html', context)
 
@@ -143,7 +140,11 @@ def devolucao_confirmar(request, pk):
     return redirect('estoque:emprestimo_list')
 
 def zeladoria_list(request):
-    itens = ZeladoriaService.list_items()
+    lista_itens = ZeladoriaService.list_items()
+    paginator = Paginator(lista_itens, 10)
+    page_number = request.GET.get('page')
+    itens = paginator.get_page(page_number)
+
     context = {'itens': itens}
     return render(request, 'estoque/zeladoria_list.html', context)
 

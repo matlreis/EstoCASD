@@ -53,4 +53,26 @@
             {% endfor %}
         </tbody>
     </table>
+
+
+    {% if emprestimos.has_other_pages %}
+    <nav class="paginacao">
+        {% if emprestimos.has_previous %}
+            <a href="?page={{ emprestimos.previous_page_number }}" class="pagina-link">&laquo; Anterior</a>
+        {% endif %}
+
+        {% for num in emprestimos.paginator.page_range %}
+            {% if emprestimos.number == num %}
+                <span class="pagina-link ativa">{{ num }}</span>
+            {% else %}
+                <a href="?page={{ num }}" class="pagina-link">{{ num }}</a>
+            {% endif %}
+        {% endfor %}
+
+        {% if emprestimos.has_next %}
+            <a href="?page={{ emprestimos.next_page_number }}" class="pagina-link">Próxima &raquo;</a>
+        {% endif %}
+    </nav>
+    {% endif %}
+
 {% endblock %}
