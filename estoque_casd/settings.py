@@ -44,7 +44,8 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'estoque',
     'autenticacao',
-    'notificacao'
+    'notificacao',
+    'dashboard'
 ]
 
 # Authentication
