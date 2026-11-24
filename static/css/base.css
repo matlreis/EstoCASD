@@ -247,9 +247,9 @@ body {
     width: 100%;
     box-sizing: border-box;
     text-align: center;
-    background-color: #121212;
-    color: var(--cor-primaria);
-    border-color: #121212;
+    background-color: var(--cor-primaria);
+    color: #121212;
+    border-color: var(--cor-primaria);
     font-weight: 600;
 }
 
