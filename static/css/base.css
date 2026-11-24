@@ -280,3 +280,82 @@ body {
     font-size: 1.1rem;
     color: var(--cor-texto);
 }
+
+@media (max-width: 768px) {
+    .cabecalho {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 12px;
+        padding: 12px 16px;
+    }
+
+    .logo-img {
+        height: 32px;
+    }
+
+    .cabecalho-usuario {
+        width: 100%;
+        flex-wrap: wrap;
+        gap: 10px 16px;
+    }
+
+    .cabecalho-usuario span {
+        border-left: none;
+        padding-left: 0;
+        margin-left: 0;
+    }
+
+    .conteudo {
+        padding: 14px;
+    }
+
+    .titulo-pagina {
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-bottom: 12px;
+    }
+
+    .titulo-pagina h1 {
+        font-size: 1.4rem;
+        margin: 0;
+    }
+
+    .tabela {
+        display: block;
+        width: 100%;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        white-space: nowrap;
+        border: none;
+    }
+
+    .tabela th:first-child,
+    .tabela td:first-child {
+        border-left: 1px solid var(--cor-borda);
+    }
+
+    .tabela thead tr:first-child th,
+    .tabela tbody:first-child tr:first-child td {
+        border-top: 1px solid var(--cor-borda);
+    }
+
+    .formulario {
+        max-width: 100%;
+        padding: 14px;
+    }
+
+    .formulario input,
+    .formulario select,
+    .formulario textarea {
+        padding: 10px;
+        font-size: 16px;
+    }
+
+    .formulario .acoes {
+        flex-wrap: wrap;
+    }
+
+    .paginacao {
+        flex-wrap: wrap;
+    }
+}
