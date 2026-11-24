@@ -15,71 +15,104 @@
     <div class="container-grafico">
         <canvas id="graficoAtrasos"></canvas>
     </div>
-
-    <script src="{% static 'js/chart.umd.min.js' %}"></script>
-    {% block scripts %}
-        <script>
-            const itens_vendidos = {{ itens_vendidos_json|safe }};
-            const valores = {{ valores_totais_json|safe }};
-
-            const ctx = document.getElementById('graficoVendas').getContext('2d');
-            
-            new Chart(ctx, {
-                type: 'bar',
-                data: {
-                    labels: itens_vendidos,
-                    datasets: [{
-                        label: 'Quantidade Vendida',
-                        data: valores,
-                        backgroundColor: 'rgba(54, 162, 235, 0.7)',
-                        borderColor: 'rgba(54, 162, 235, 1)',
-                        borderWidth: 1
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    scales: {
-                        y: {
-                            beginAtZero: true,
-                            ticks: {
-                                stepSize: 1 
-                            }
-                        }
-                    }
-                }
-            });
-        </script>
-        <script>
-            const itens_atrasados = {{ itens_atrasados_json|safe }};
-            const atrasos = {{ atrasos_totais_json|safe }};
-
-            const cty = document.getElementById('graficoAtrasos').getContext('2d');
-            
-            new Chart(cty, {
-                type: 'bar',
-                data: {
-                    labels: itens_atrasados,
-                    datasets: [{
-                        label: 'Itens mais atrasados',
-                        data: atrasos,
-                        backgroundColor: 'rgba(54, 162, 235, 0.7)',
-                        borderColor: 'rgba(54, 162, 235, 1)',
-                        borderWidth: 1
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    scales: {
-                        y: {
-                            beginAtZero: true,
-                            ticks: {
-                                stepSize: 1 
-                            }
-                        }
-                    }
-                }
-            });
-        </script>
-    {% endblock %}
 {% endblock %}
 
+{% block scripts %}
+    <script src="{% static 'js/chart.umd.min.js' %}"></script>
+    <script>
+        const itens_vendidos = {{ itens_vendidos_json|safe }};
+        const valores = {{ valores_totais_json|safe }};
+
+        const ctx = document.getElementById('graficoVendas').getContext('2d');
+
+        new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: itens_vendidos,
+                datasets: [{
+                    label: 'Quantidade Vendida',
+                    data: valores,
+                    backgroundColor: 'rgba(245, 196, 0, 0.85)',
+                    borderColor: '#d4a900',
+                    borderWidth: 1.5,
+                    borderRadius: 4
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: {
+                        labels: {
+                            color: '#222'
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        ticks: {
+                            color: '#222'
+                        },
+                        grid: {
+                            display: false
+                        }
+                    },
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            stepSize: 1,
+                            color: '#222'
+                        }
+                    }
+                }
+            }
+        });
+    </script>
+    <script>
+        const itens_atrasados = {{ itens_atrasados_json|safe }};
+        const atrasos = {{ atrasos_totais_json|safe }};
+
+        const cty = document.getElementById('graficoAtrasos').getContext('2d');
+
+        new Chart(cty, {
+            type: 'bar',
+            data: {
+                labels: itens_atrasados,
+                datasets: [{
+                    label: 'Itens mais atrasados',
+                    data: atrasos,
+                    backgroundColor: 'rgba(18, 18, 18, 0.85)',
+                    borderColor: '#f5c400',
+                    borderWidth: 2,
+                    borderRadius: 4
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: {
+                        labels: {
+                            color: '#222'
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        ticks: {
+                            color: '#222'
+                        },
+                        grid: {
+                            display: false
+                        }
+                    },
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            stepSize: 1,
+                            color: '#222'
+                        }
+                    }
+                }
+            }
+        });
+    </script>
+{% endblock %}

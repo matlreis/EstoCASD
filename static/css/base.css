@@ -281,6 +281,14 @@ body {
     color: var(--cor-texto);
 }
 
+.container-grafico {
+    background-color: rgba(255, 255, 255, 0.94);
+    border: 1px solid var(--cor-borda);
+    border-radius: 8px;
+    padding: 20px;
+    margin-bottom: 30px;
+}
+
 @media (max-width: 768px) {
     .cabecalho {
         flex-direction: column;
