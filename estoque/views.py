@@ -27,6 +27,13 @@ def item_list(request):
     context = {'itens': itens}
     return render(request, 'estoque/item_list.html', context)
 
+@login_not_required
+def item_detail(request, pk):
+    item = get_object_or_404(ItemCASD, pk=pk, is_active=True)
+
+    context = {'item': item}
+    return render(request, 'estoque/item_detail.html', context)
+
 def item_create(request):
     if request.method == "POST":
         item_form = ItemCASDForm(request.POST)
