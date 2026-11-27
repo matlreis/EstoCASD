@@ -6,7 +6,7 @@ from django.urls import reverse
 
 from .helpers_tests import criar_admin
 from .models import ItemCASD, ItemZeladoria
-from .qr import gerar_qr_code_png, montar_qr_code
+from .qr import qr_code_png, montar_qr_code
 
 ASSINATURA_PNG = b'\x89PNG\r\n\x1a\n'
 URL = 'https://estocasd.example/itens/1/'
@@ -88,15 +88,15 @@ class QrCodeTestCase(SimpleTestCase):
         self.assertNotEqual(qr.matrix, montar_qr_code(URL).matrix)
 
     def test_png_comeca_com_a_assinatura_png(self):
-        png = gerar_qr_code_png(URL)
+        png = qr_code_png(URL)
         self.assertEqual(png[:8], ASSINATURA_PNG)
 
     def test_png_tem_resolucao_suficiente_para_imprimir(self):
-        png = gerar_qr_code_png(URL)
+        png = qr_code_png(URL)
         self.assertGreaterEqual(largura_do_png(png), 600)
 
     def test_png_tem_zona_de_silencio_de_quatro_modulos(self):
-        png = gerar_qr_code_png(URL)
+        png = qr_code_png(URL)
         self.assertEqual(largura_do_png(png) % (len(montar_qr_code(URL).matrix) + 8), 0)
 
 
@@ -170,15 +170,15 @@ class ItemQrPngViewTestCase(TestCase):
         self.assertEqual(resposta.content[:8], ASSINATURA_PNG)
 
     def test_codifica_a_pagina_publica_do_item(self):
-        with mock.patch('estoque.views.gerar_qr_code_png', return_value=b'png') as gerar:
+        with mock.patch('estoque.views.qr_code_png', return_value=b'png') as qr:
             self.client.get(self.url)
-        gerar.assert_called_once_with('http://testserver' + reverse('estoque:item_detail', args=[self.item.pk]))
+        qr.assert_called_once_with('http://testserver' + reverse('estoque:item_detail', args=[self.item.pk]))
 
     @override_settings(ALLOWED_HOSTS=['estocasd.example'])
     def test_codifica_o_host_e_o_esquema_da_requisicao(self):
-        with mock.patch('estoque.views.gerar_qr_code_png', return_value=b'png') as gerar:
+        with mock.patch('estoque.views.qr_code_png', return_value=b'png') as qr:
             self.client.get(self.url, secure=True, HTTP_HOST='estocasd.example')
-        gerar.assert_called_once_with('https://estocasd.example' + reverse('estoque:item_detail', args=[self.item.pk]))
+        qr.assert_called_once_with('https://estocasd.example' + reverse('estoque:item_detail', args=[self.item.pk]))
 
     def test_item_removido_retorna_404(self):
         ItemCASD.objects.filter(pk=self.item.pk).update(is_active=False)
@@ -200,3 +200,25 @@ class ItemQrSemLoginTestCase(TestCase):
         url = reverse('estoque:item_qr_png', args=[self.item.pk])
         resposta = self.client.get(url)
         self.assertRedirects(resposta, f'{self.login}?next={url}', fetch_redirect_response=False)
+
+
+class ItemListBotaoQrTestCase(TestCase):
+    def setUp(self):
+        self.item = ItemCASD.objects.create(nome='Caixa de som', quant_total=3)
+        self.url = reverse('estoque:item_list')
+
+    def test_admin_ve_o_botao_qr_code(self):
+        self.client.force_login(criar_admin())
+        resposta = self.client.get(self.url)
+        link = reverse('estoque:item_qr', args=[self.item.pk])
+        self.assertContains(resposta, f'<a class="btn" href="{link}">QR code</a>', html=True)
+
+    def test_admin_ve_um_botao_por_item(self):
+        ItemCASD.objects.create(nome='Escada', quant_total=2)
+        self.client.force_login(criar_admin())
+        resposta = self.client.get(self.url)
+        self.assertContains(resposta, 'QR code', count=2)
+
+    def test_visitante_nao_ve_o_botao_qr_code(self):
+        resposta = self.client.get(self.url)
+        self.assertNotContains(resposta, 'QR code')

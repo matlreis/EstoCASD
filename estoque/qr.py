@@ -8,7 +8,7 @@ def montar_qr_code(url):
     return segno.make_qr(url, error='q')
 
 
-def gerar_qr_code_png(url):
+def qr_code_png(url):
     buffer = io.BytesIO()
     montar_qr_code(url).save(buffer, kind='png', scale=20, border=4)
     return buffer.getvalue()

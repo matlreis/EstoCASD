@@ -16,7 +16,7 @@ from .forms import (
     ItemZeladoriaForm,
     VendaForm
 )
-from .qr import gerar_qr_code_png
+from .qr import qr_code_png
 from .services import EstoqueService, EmprestimoService, ZeladoriaService
 
 
@@ -48,7 +48,7 @@ def item_qr(request, pk):
 
 def item_qr_png(request, pk):
     item = get_object_or_404(ItemCASD, pk=pk, is_active=True)
-    png = gerar_qr_code_png(_url_publica_do_item(request, item))
+    png = qr_code_png(_url_publica_do_item(request, item))
     return HttpResponse(png, content_type='image/png')
 
 def item_create(request):

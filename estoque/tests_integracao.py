@@ -705,6 +705,21 @@ class QrCodeLevaAoItemTestCase(FluxoTestCase):
         self.assertTemplateUsed(resposta, 'estoque/devolucao_form.html')
 
 
+class QrCodePeloBotaoDaTabelaTestCase(FluxoTestCase):
+    def setUp(self):
+        super().setUp()
+        self.item = self.cadastrar_item(quant_total=3)
+        tabela = self.cliente_admin.get(reverse('estoque:item_list'))
+        link = re.search(r'href="([^"]+)">QR code</a>', tabela.content.decode()).group(1)
+        self.pagina_qr = self.cliente_admin.get(link)
+
+    def test_botao_abre_a_pagina_do_qr_code(self):
+        self.assertTemplateUsed(self.pagina_qr, 'estoque/item_qr.html')
+
+    def test_qr_code_aberto_pelo_botao_e_do_item_certo(self):
+        self.assertEqual(self.pagina_qr.context['item'], self.item)
+
+
 class QrCodeDeItemRemovidoTestCase(FluxoTestCase):
     def setUp(self):
         super().setUp()
