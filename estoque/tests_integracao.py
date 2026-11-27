@@ -2,8 +2,10 @@
 Testes de integração do app estoque.
 Cada classe é um cenário: o setUp executa os passos pelo site, como um usuário faria.
 """
+import re
 from datetime import timedelta
 from unittest import mock
+from urllib.parse import urlparse
 
 from django.contrib.messages import get_messages
 from django.db.models import Sum
@@ -677,6 +679,42 @@ class DataDeRetiradaInvalidaTestCase(FluxoTestCase):
         resposta = self.emprestar(self.item, retirada_em=4, dias=1)
         mensagem = 'A data de devolução não pode ser anterior à data de retirada.'
         self.assertIn(mensagem, resposta.context['form'].non_field_errors())
+
+
+class QrCodeLevaAoItemTestCase(FluxoTestCase):
+    def setUp(self):
+        super().setUp()
+        self.item = self.cadastrar_item(quant_total=3)
+        self.pagina_qr = self.cliente_admin.get(reverse('estoque:item_qr', args=[self.item.pk]))
+        self.pagina_do_item = self.anonimo.get(urlparse(self.pagina_qr.context['url']).path)
+
+    def test_endereco_do_qr_abre_sem_login(self):
+        self.assertEqual(self.pagina_do_item.status_code, 200)
+
+    def test_endereco_do_qr_abre_a_pagina_do_item_certo(self):
+        self.assertEqual(self.pagina_do_item.context['item'], self.item)
+
+    def test_botao_emprestar_abre_o_formulario_de_emprestimo(self):
+        link = re.search(r'href="([^"]+)">Emprestar</a>', self.pagina_do_item.content.decode()).group(1)
+        resposta = self.anonimo.get(link)
+        self.assertTemplateUsed(resposta, 'estoque/emprestimo_form.html')
+
+    def test_botao_devolver_abre_o_formulario_de_devolucao(self):
+        link = re.search(r'href="([^"]+)">Devolver</a>', self.pagina_do_item.content.decode()).group(1)
+        resposta = self.anonimo.get(link)
+        self.assertTemplateUsed(resposta, 'estoque/devolucao_form.html')
+
+
+class QrCodeDeItemRemovidoTestCase(FluxoTestCase):
+    def setUp(self):
+        super().setUp()
+        self.item = self.cadastrar_item(quant_total=3)
+        pagina_qr = self.cliente_admin.get(reverse('estoque:item_qr', args=[self.item.pk]))
+        self.remover_item(self.item)
+        self.pagina_do_item = self.anonimo.get(urlparse(pagina_qr.context['url']).path)
+
+    def test_adesivo_antigo_leva_a_pagina_inexistente(self):
+        self.assertEqual(self.pagina_do_item.status_code, 404)
 
 
 class ZeladoriaCriadaTestCase(FluxoTestCase):
