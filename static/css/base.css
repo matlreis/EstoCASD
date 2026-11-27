@@ -367,3 +367,21 @@ body {
         flex-wrap: wrap;
     }
 }
+
+.qr-pagina {
+    text-align: center;
+}
+
+.qr-pagina .acoes {
+    justify-content: center;
+}
+
+.qr-code {
+    width: 280px;
+    max-width: 100%;
+    height: auto;
+}
+
+.qr-endereco {
+    word-break: break-all;
+}

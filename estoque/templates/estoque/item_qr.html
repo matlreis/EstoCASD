@@ -1,0 +1,17 @@
+{% extends 'base.html' %}
+
+{% block title %}QR code: {{ item.nome }} | EstoCASD{% endblock %}
+
+{% block content %}
+    <div class="qr-pagina">
+        <h1>{{ item.nome }}</h1>
+        <img class="qr-code" src="{% url 'estoque:item_qr_png' item.pk %}" alt="QR code de {{ item.nome }}">
+        <p class="qr-endereco">{{ url }}</p>
+
+        <div class="acoes">
+            <a class="btn btn-primario" href="{% url 'estoque:item_qr_png' item.pk %}"
+               download="qr-{{ item.nome|slugify }}.png">Baixar PNG</a>
+            <a class="btn" href="{% url 'estoque:item_list' %}">Voltar</a>
+        </div>
+    </div>
+{% endblock %}

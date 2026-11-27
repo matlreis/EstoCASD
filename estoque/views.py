@@ -1,7 +1,9 @@
 from django.contrib import messages
 from django.contrib.auth.decorators import login_not_required
 from django.core.exceptions import ValidationError
+from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, render, redirect
+from django.urls import reverse
 from django.views.decorators.http import require_POST
 from django.core.paginator import Paginator
 
@@ -14,6 +16,7 @@ from .forms import (
     ItemZeladoriaForm,
     VendaForm
 )
+from .qr import gerar_qr_code_png
 from .services import EstoqueService, EmprestimoService, ZeladoriaService
 
 
@@ -33,6 +36,20 @@ def item_detail(request, pk):
 
     context = {'item': item}
     return render(request, 'estoque/item_detail.html', context)
+
+def _url_publica_do_item(request, item):
+    return request.build_absolute_uri(reverse('estoque:item_detail', args=[item.pk]))
+
+def item_qr(request, pk):
+    item = get_object_or_404(ItemCASD, pk=pk, is_active=True)
+
+    context = {'item': item, 'url': _url_publica_do_item(request, item)}
+    return render(request, 'estoque/item_qr.html', context)
+
+def item_qr_png(request, pk):
+    item = get_object_or_404(ItemCASD, pk=pk, is_active=True)
+    png = gerar_qr_code_png(_url_publica_do_item(request, item))
+    return HttpResponse(png, content_type='image/png')
 
 def item_create(request):
     if request.method == "POST":
